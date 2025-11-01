@@ -11,8 +11,8 @@ export interface MockUser {
   export const mockUsers: MockUser[] = [
     {
       id: '1',
-      username: 'admin',
-      password: 'admin123', // Change this for security!
+      username: 'alibyh',
+      password: 'popopo', // Change this for security!
       company: 'Роснефть',
       companyId: 'rosneft-001',
       warehouses: [
@@ -20,17 +20,6 @@ export interface MockUser {
         { id: 'wh-2', address: 'Санкт-Петербург, пр. Нефтяников, д. 15' }
       ],
       role: 'admin'
-    },
-    {
-      id: '2',
-      username: 'alibyh',
-      password: 'popopo',
-      company: 'Дочерняя компания А',
-      companyId: 'subsidiary-a',
-      warehouses: [
-        { id: 'wh-3', address: 'Новосибирск, ул. Складская, д. 5' }
-      ],
-      role: 'user'
     },
     // Add more users here...
   ];
