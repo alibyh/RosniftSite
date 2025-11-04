@@ -37,17 +37,17 @@ const normalizeRussianAddress = (address: string): string => {
   let normalized = address.trim();
   
   // Expand common abbreviations
-  const replacements: Record<string, string> = {
-    'край ': 'край ',
-    'обл ': 'область ',
-    'ул ': 'улица ',
-    'ул.': 'улица ',
-    'г ': 'город ',
-    'г.': 'город ',
-    'р-н ': 'район ',
-    'д.': 'дом ',
-    'д ': 'дом ',
-  };
+  // const replacements: Record<string, string> = {
+  //   'край ': 'край ',
+  //   'обл ': 'область ',
+  //   'ул ': 'улица ',
+  //   'ул.': 'улица ',
+  //   'г ': 'город ',
+  //   'г.': 'город ',
+  //   'р-н ': 'район ',
+  //   'д.': 'дом ',
+  //   'д ': 'дом ',
+  // };
   
   // Try to detect and fix region name issues
   // "Красноярский" should be Krasnoyarsk, not Primorsky

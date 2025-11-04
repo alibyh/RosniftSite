@@ -184,16 +184,6 @@ const ProductDetails: React.FC = () => {
           map.removeSource('route');
         }
 
-        // Create markers
-        const originMarker = new mapboxgl.Marker({ color: '#FED208' })
-          .setLngLat(origin)
-          .setPopup(new mapboxgl.Popup().setHTML(`<strong>Склад отгрузки</strong><br/>${selectedWarehouse}`))
-          .addTo(map);
-
-        const destinationMarker = new mapboxgl.Marker({ color: '#FED208' })
-          .setLngLat(destination)
-          .setPopup(new mapboxgl.Popup().setHTML(`<strong>Адрес назначения</strong><br/>${destinationAddress}`))
-          .addTo(map);
 
         // Get route
         console.log('📍 Calculating route...');
