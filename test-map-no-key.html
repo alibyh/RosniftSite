@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yandex Maps Test - WITHOUT API Key</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    
+    h1 {
+      color: #FED208;
+    }
+    
+    #map {
+      width: 800px;
+      height: 600px;
+      border: 3px solid #FED208;
+      margin: 20px 0;
+    }
+    
+    .status {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    
+    .success {
+      color: #4caf50;
+      font-weight: bold;
+    }
+    
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+    
+    .warning {
+      color: #ff9800;
+      font-weight: bold;
+    }
+    
+    .info {
+      color: #2196f3;
+    }
+  </style>
+  <!-- NO API KEY - Testing if key is blocking tiles -->
+  <script 
+    src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" 
+    type="text/javascript"
+    onload="console.log('✅ Script loaded (no API key)')"
+  ></script>
+</head>
+<body>
+  <h1>🧪 Test: Yandex Maps WITHOUT API Key</h1>
+  
+  <div class="status">
+    <h3 class="warning">⚠️ Testing without API key</h3>
+    <p>This test loads Yandex Maps <strong>without an API key</strong> to check if your API key is blocking tile access.</p>
+    <p>Yandex allows localhost access without a key for development.</p>
+  </div>
+  
+  <div class="status" id="status">
+    <p class="info">⏳ Initializing map...</p>
+  </div>
+  
+  <div id="map"></div>
+  
+  <div class="status" id="result"></div>
+  
+  <script>
+    function initMap() {
+      const statusDiv = document.getElementById('status');
+      const resultDiv = document.getElementById('result');
+      
+      if (typeof ymaps === 'undefined') {
+        statusDiv.innerHTML = '<span class="error">❌ Yandex Maps API not loaded</span>';
+        return;
+      }
+      
+      ymaps.ready(() => {
+        try {
+          statusDiv.innerHTML = '<p class="success">✅ ymaps.ready() fired</p>';
+          
+          const map = new ymaps.Map('map', {
+            center: [55.751244, 37.618423],
+            zoom: 10
+          });
+          
+          console.log('✅ Map created without API key');
+          statusDiv.innerHTML = '<p class="success">✅ Map instance created!</p>';
+          
+          // Check for tiles after delay
+          setTimeout(() => {
+            const images = document.querySelectorAll('#map img');
+            console.log(`Found ${images.length} images`);
+            
+            if (images.length > 0) {
+              resultDiv.innerHTML = `
+                <h3 class="success">🎉 SUCCESS! Tiles are loading!</h3>
+                <p>Found <strong>${images.length} tile images</strong></p>
+                <p><strong class="success">Conclusion: Your API key is BLOCKING tile access!</strong></p>
+                <hr style="border-color: #444; margin: 20px 0;">
+                <h4>✅ Solution:</h4>
+                <ol>
+                  <li><strong>For Development:</strong> Remove the API key from index.html (use maps without key on localhost)</li>
+                  <li><strong>For Production:</strong> Contact Yandex support to enable tile access for your API key</li>
+                  <li><strong>Alternative:</strong> Check if your API key tier includes tile downloads in the billing section</li>
+                </ol>
+                <hr style="border-color: #444; margin: 20px 0;">
+                <h4>📝 To fix your app:</h4>
+                <p>Change line 11 in <code>index.html</code> from:</p>
+                <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; overflow-x: auto;">src="https://api-maps.yandex.ru/2.1/?apikey=b1cd8291-...&lang=ru_RU&load=package.full"</pre>
+                <p>To:</p>
+                <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; overflow-x: auto;">src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&load=package.full"</pre>
+                <p style="color: #ff9800; margin-top: 15px;">⚠️ <strong>Note:</strong> Without an API key, maps only work on localhost. You'll need a working key for production.</p>
+              `;
+            } else {
+              resultDiv.innerHTML = `
+                <h3 class="error">❌ Still no tiles</h3>
+                <p>Even without the API key, tiles aren't loading.</p>
+                <p><strong>This means the issue is NOT the API key.</strong></p>
+                <hr style="border-color: #444; margin: 20px 0;">
+                <h4>Possible causes:</h4>
+                <ul>
+                  <li>Network/firewall blocking vec*.maps.yandex.net</li>
+                  <li>Browser extension blocking content</li>
+                  <li>ISP restrictions on Yandex services</li>
+                  <li>Yandex Maps service issue</li>
+                </ul>
+                <p>Check the Network tab in DevTools for requests to vec*.maps.yandex.net</p>
+              `;
+            }
+          }, 3000);
+          
+        } catch (error) {
+          console.error('Error:', error);
+          statusDiv.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+        }
+      });
+    }
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMap);
+    } else {
+      initMap();
+    }
+  </script>
+</body>
+</html>
+

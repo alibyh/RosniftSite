@@ -12,6 +12,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    hmr: {
+      // Enable HMR (Hot Module Replacement) for instant updates
+      overlay: true,
+    },
+    watch: {
+      // Ensure file watching works properly
+      usePolling: false, // Use native file system events
+      interval: 100,
+    },
     ...(fs.existsSync(path.resolve(process.cwd(), 'localhost+2-key.pem')) && 
         fs.existsSync(path.resolve(process.cwd(), 'localhost+2.pem')) ? {
       https: {

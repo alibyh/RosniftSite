@@ -5,13 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Роснефть - Корпоративная Торговая Площадка</title>
-  <script 
-    src="https://api-maps.yandex.ru/2.1/?apikey=b1cd8291-371b-4ada-a3ee-9aa82626d128&lang=ru_RU&load=package.full" 
-    type="text/javascript"
-    onerror="console.error('Failed to load Yandex Maps API script')"
-  ></script>
+  <!-- Mapbox GL JS CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+  <!-- Mapbox GL JS will be imported in the component -->
+  <!-- Prevent Yandex Maps from loading if cached -->
+  <script>
+    // Clear any cached Yandex Maps
+    if (window.ymaps) {
+      console.warn('⚠️ Yandex Maps detected - clearing cache');
+      delete window.ymaps;
+    }
+    // Prevent Yandex script from loading
+    const originalCreateElement = document.createElement;
+    document.createElement = function(tagName, ...args) {
+      const element = originalCreateElement.call(this, tagName, ...args);
+      if (tagName === 'script' && element.src && element.src.includes('api-maps.yandex.ru')) {
+        console.warn('🚫 Blocked Yandex Maps script:', element.src);
+        return null;
+      }
+      return element;
+    };
+  </script>
 </head>
 <body>
   <div id="root"></div>

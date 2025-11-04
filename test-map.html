@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yandex Maps API Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    
+    h1 {
+      color: #FED208;
+    }
+    
+    #map {
+      width: 800px;
+      height: 600px;
+      border: 3px solid #FED208;
+      margin: 20px 0;
+    }
+    
+    .status {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    
+    .success {
+      color: #4caf50;
+      font-weight: bold;
+    }
+    
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+    
+    .warning {
+      color: #ff9800;
+      font-weight: bold;
+    }
+    
+    .info {
+      color: #2196f3;
+    }
+    
+    code {
+      background: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #FED208;
+    }
+    
+    .instructions {
+      background: #2a2a2a;
+      border-left: 4px solid #FED208;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    
+    .network-check {
+      background: #2a2a2a;
+      border: 1px solid #FED208;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+  </style>
+  <!-- Try loading Yandex Maps API WITHOUT API key first to test if it's a key issue -->
+  <script 
+    src="https://api-maps.yandex.ru/2.1/?apikey=b1cd8291-371b-4ada-a3ee-9aa82626d128&lang=ru_RU" 
+    type="text/javascript"
+    onload="console.log('✅ Yandex Maps API script loaded successfully')"
+    onerror="console.error('❌ Failed to load Yandex Maps API script'); document.getElementById('status').innerHTML = '<span class=\'error\'>❌ Failed to load Yandex Maps API script</span>';"
+  ></script>
+</head>
+<body>
+  <h1>🗺️ Yandex Maps API Test Page</h1>
+  
+  <div class="instructions">
+    <h3>📋 Instructions:</h3>
+    <ol>
+      <li>Open Chrome DevTools (F12 or Cmd+Option+I)</li>
+      <li>Go to the <strong>Network</strong> tab</li>
+      <li>Filter by "maps" or "vec"</li>
+      <li>Watch for requests to <code>vec*.maps.yandex.net</code></li>
+      <li>Check the status codes (200 = success, 403 = blocked)</li>
+    </ol>
+  </div>
+  
+  <div class="status" id="status">
+    <p class="info">⏳ Initializing map...</p>
+  </div>
+  
+  <div id="map"></div>
+  
+  <div class="network-check">
+    <h3>🔍 What to Look For in Network Tab:</h3>
+    <ul>
+      <li><span class="success">✅ Status 200</span> on <code>vec01.maps.yandex.net</code>, <code>vec02.maps.yandex.net</code>, etc. = <strong>SUCCESS! Tiles are loading.</strong></li>
+      <li><span class="error">❌ Status 403</span> = API key is blocking requests (check HTTP Referer restrictions)</li>
+      <li><span class="error">❌ Status 401</span> = API key is invalid or expired</li>
+      <li><span class="warning">⚠️ No requests to vec*.maps.yandex.net</span> = API key doesn't have tile permissions</li>
+    </ul>
+  </div>
+  
+  <div id="diagnostics" class="status"></div>
+  
+  <script>
+    // Wait for Yandex Maps API to load
+    function initMap() {
+      const statusDiv = document.getElementById('status');
+      const diagnosticsDiv = document.getElementById('diagnostics');
+      
+      if (typeof ymaps === 'undefined') {
+        statusDiv.innerHTML = '<span class="error">❌ Yandex Maps API (ymaps) is not defined. Check if the script loaded correctly.</span>';
+        return;
+      }
+      
+      statusDiv.innerHTML = '<p class="info">⏳ Calling ymaps.ready()...</p>';
+      
+      ymaps.ready(() => {
+        try {
+          statusDiv.innerHTML = '<p class="success">✅ ymaps.ready() callback fired. Creating map...</p>';
+          
+          // Create a simple map centered on Moscow
+          const map = new ymaps.Map('map', {
+            center: [55.751244, 37.618423], // Moscow coordinates
+            zoom: 10,
+            controls: ['zoomControl', 'fullscreenControl']
+          });
+          
+          console.log('✅ Map instance created');
+          statusDiv.innerHTML = '<p class="success">✅ Map instance created successfully!</p>';
+          
+          // Add a marker
+          const placemark = new ymaps.Placemark([55.751244, 37.618423], {
+            balloonContent: '<strong>Moscow</strong><br/>Test marker'
+          }, {
+            preset: 'islands#yellowStretchyIcon'
+          });
+          
+          map.geoObjects.add(placemark);
+          console.log('✅ Marker added to map');
+          
+          // Listen for tile loading events
+          map.events.add('tilesload', () => {
+            console.log('✅ Tiles loaded successfully!');
+            statusDiv.innerHTML = '<p class="success">✅✅✅ SUCCESS! Map tiles are loading correctly!</p>';
+            diagnosticsDiv.innerHTML = `
+              <h3 class="success">🎉 Congratulations! Your API key is configured correctly.</h3>
+              <p>The map tiles are loading from vec*.maps.yandex.net domains.</p>
+              <p><strong>You can now use this API key in your React application.</strong></p>
+            `;
+          });
+          
+          map.events.add('tileserror', (e) => {
+            console.error('❌ Tiles error:', e);
+            diagnosticsDiv.innerHTML += `
+              <p class="error">❌ Tile loading error detected!</p>
+              <p>Check the Network tab for failed requests to vec*.maps.yandex.net domains.</p>
+            `;
+          });
+          
+          // Check for tiles after a delay
+          setTimeout(() => {
+            const mapContainer = document.getElementById('map');
+            const images = mapContainer.querySelectorAll('img');
+            
+            console.log(`Found ${images.length} images in map container`);
+            diagnosticsDiv.innerHTML = `
+              <h3>📊 Diagnostics:</h3>
+              <ul>
+                <li>Map container exists: <span class="success">✅ Yes</span></li>
+                <li>Map instance created: <span class="success">✅ Yes</span></li>
+                <li>Images (tiles) loaded: ${images.length > 0 
+                  ? `<span class="success">✅ ${images.length} images found</span>` 
+                  : '<span class="error">❌ 0 images found</span>'}
+                </li>
+              </ul>
+              ${images.length === 0 ? `
+                <p class="warning">⚠️ <strong>No tile images found!</strong></p>
+                <p>This means the API key is blocking tile requests.</p>
+                <p><strong>Solution:</strong></p>
+                <ol>
+                  <li>Go to <a href="https://developer.tech.yandex.ru/services/" target="_blank" style="color: #FED208;">Yandex Developer Console</a></li>
+                  <li>Find your API key: <code>b1cd8291-371b-4ada-a3ee-9aa82626d128</code></li>
+                  <li>Check "HTTP Referer Restrictions"</li>
+                  <li>Add <code>localhost</code> and <code>127.0.0.1</code> to allowed referers</li>
+                  <li>Make sure "JavaScript API" is enabled</li>
+                  <li>Save and wait 5 minutes for changes to propagate</li>
+                  <li>Refresh this page</li>
+                </ol>
+              ` : ''}
+            `;
+            
+            // Log some tile URLs if found
+            if (images.length > 0) {
+              console.log('Sample tile URLs:');
+              for (let i = 0; i < Math.min(3, images.length); i++) {
+                console.log(`  ${i + 1}. ${images[i].src}`);
+              }
+            }
+          }, 3000);
+          
+        } catch (error) {
+          console.error('❌ Error creating map:', error);
+          statusDiv.innerHTML = `<span class="error">❌ Error creating map: ${error.message}</span>`;
+          diagnosticsDiv.innerHTML = `
+            <h3 class="error">Error Details:</h3>
+            <pre>${error.stack}</pre>
+          `;
+        }
+      });
+    }
+    
+    // Initialize map when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMap);
+    } else {
+      initMap();
+    }
+  </script>
+</body>
+</html>
+

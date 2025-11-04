@@ -14,7 +14,13 @@ function App() {
   const basePath = import.meta.env.BASE_URL || '/';
 
   return (
-    <Router basename={basePath}>
+    <Router 
+      basename={basePath}
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         {isAuthenticated && <Navbar />}
         <Routes>

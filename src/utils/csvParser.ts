@@ -26,7 +26,18 @@ export const parseCSV = async (): Promise<InventoryRow[]> => {
       Papa.parse<any>(csvText, {
         header: true,
         skipEmptyLines: true,
+        // Properly handle quoted fields with commas
+        quoteChar: '"',
+        escapeChar: '"',
+        delimiter: ',',
+        newline: '\n',
+        // Handle unquoted fields that might contain commas
+        transformHeader: (header) => header.trim(),
         complete: (results) => {
+          // Debug: log first few rows to see structure
+          if (results.data.length > 0) {
+            console.log('CSV parsing - First row keys:', Object.keys(results.data[0]));
+          }
           // Map CSV headers to our interface
           const headerMap: Record<string, keyof InventoryRow> = {
             'БЕ (балансовая единица) держателя запаса': 'balanceUnit',
@@ -51,11 +62,48 @@ export const parseCSV = async (): Promise<InventoryRow[]> => {
             .map((row: any) => {
               const mappedRow: Partial<InventoryRow> = {};
               
+              // Get all keys in order to detect split addresses
+              const allKeys = Object.keys(row);
+              
               // Map each column
               Object.keys(row).forEach((key) => {
                 const mappedKey = headerMap[key] || headerMap[key.trim()];
                 if (mappedKey) {
-                  (mappedRow as any)[mappedKey] = row[key] || '';
+                  let value = row[key] || '';
+                  
+                  // Special handling for warehouseAddress - merge split fields
+                  if (mappedKey === 'warehouseAddress') {
+                    const addressKeyIndex = allKeys.indexOf(key);
+                    
+                    // Check if the next column might be part of the address
+                    // Addresses with commas might be split into multiple columns
+                    if (addressKeyIndex < allKeys.length - 1) {
+                      const nextKey = allKeys[addressKeyIndex + 1];
+                      const nextValue = row[nextKey] || '';
+                      
+                      // If next column is not mapped to any field and looks like address continuation
+                      if (nextValue && !headerMap[nextKey] && !headerMap[nextKey.trim()]) {
+                        // Check if it looks like an address part (contains street indicators, regions, etc.)
+                        const looksLikeAddress = 
+                          nextValue.toLowerCase().includes('ул') ||
+                          nextValue.toLowerCase().includes('улица') ||
+                          nextValue.toLowerCase().includes('край') ||
+                          nextValue.toLowerCase().includes('обл') ||
+                          nextValue.toLowerCase().includes('г ') ||
+                          nextValue.toLowerCase().includes('г.') ||
+                          nextValue.match(/\d/); // Contains numbers (like house numbers)
+                        
+                        if (looksLikeAddress) {
+                          // Merge the address parts
+                          value = `${value}, ${nextValue}`.trim();
+                          // Mark this key as processed so it doesn't get mapped separately
+                          delete row[nextKey];
+                        }
+                      }
+                    }
+                  }
+                  
+                  (mappedRow as any)[mappedKey] = value;
                 }
               });
 
