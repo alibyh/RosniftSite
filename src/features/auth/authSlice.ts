@@ -4,9 +4,11 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 interface User {
   id: string;
   username: string;
+  fullName?: string;
   company: string;
+  branch?: string;
   companyId: string;
-  warehouses: Array<{ id: string; address: string }>;
+  warehouses: Array<{ id?: string; address?: string } | string>;
   role: 'admin' | 'user' | 'manager';
 }
 

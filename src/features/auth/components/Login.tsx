@@ -78,16 +78,6 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   }
 };
 
-  const getCompanyForUser = (username: string): string => {
-    const mockCompanies: Record<string, string> = {
-      admin: 'Роснефть',
-      company1: 'Дочерняя компания А',
-      company2: 'Дочерняя компания Б',
-      company3: 'Дочерняя компания В',
-    };
-    return mockCompanies[username.toLowerCase()] || `Компания ${username}`;
-  };
-
   return (
     <div className="login-container">
       <div className="login-card">

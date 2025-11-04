@@ -19,3 +19,63 @@ code {
     monospace;
 }
 
+/* Yandex Maps Styles - Ensure tiles are visible */
+.ymaps-2-1-79-map,
+.ymaps-2-1-79-map * {
+  box-sizing: border-box !important;
+}
+
+/* Ensure Yandex Maps container and tiles are visible */
+[class*="ymaps"] {
+  position: relative !important;
+  visibility: visible !important;
+}
+
+/* Make sure map tiles are visible */
+.ymaps-2-1-79-map .ymaps-2-1-79-ground-pane,
+.ymaps-2-1-79-map .ymaps-2-1-79-tiles-pane {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  z-index: 1 !important;
+}
+
+/* Force ground pane to be visible */
+.ymaps-2-1-79-ground-pane {
+  visibility: visible !important;
+  display: block !important;
+  opacity: 1 !important;
+}
+
+/* Ensure map layers are visible */
+.ymaps-2-1-79-layers-pane {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Style Yandex Maps controls for dark theme */
+.ymaps-2-1-79-float-button {
+  background-color: #2a2a2a !important;
+  border: 1px solid #444 !important;
+}
+
+.ymaps-2-1-79-balloon__content {
+  background-color: #2a2a2a !important;
+  color: #fff !important;
+}
+
+.ymaps-2-1-79-balloon__tail {
+  background-color: #2a2a2a !important;
+}
+
+/* Ensure route lines are visible */
+.ymaps-2-1-79-islets_icon-route {
+  opacity: 1 !important;
+  z-index: 1000 !important;
+}
+
+[class*="ymaps"][class*="route"] {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+

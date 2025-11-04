@@ -1,10 +1,12 @@
 export interface MockUser {
     id: string;
     username: string;
+    fullName: string;
     password: string; // In production, this would be hashed
     company: string;
+    branch: string;
     companyId: string;
-    warehouses: Array<{ id: string; address: string }>;
+    warehouses: Array<{address: string }>;
     role: 'admin' | 'user' | 'manager';
   }
   
@@ -14,14 +16,16 @@ export interface MockUser {
       username: 'alibyh',
       password: 'popopo', // Change this for security!
       company: 'Роснефть',
-      companyId: 'rosneft-001',
+      branch: 'ООО "РН-Туапсинский НПЗ"	',
+      fullName: 'Али Б',
+      companyId: '1221',
       warehouses: [
-        { id: 'wh-1', address: 'Москва, ул. Нефтяная, д. 1' },
-        { id: 'wh-2', address: 'Санкт-Петербург, пр. Нефтяников, д. 15' }
+        { address: 'АО "Самара-Волго г. Самара, Московское ш., д. 55' },
+        { address: 'край Краснодарский р-н Туапсинский х Греческий ул Майкопская' },
+        { address: 'край Красноярский, Ул Борисова 14а' },
       ],
       role: 'admin'
     },
-    // Add more users here...
   ];
   
   // Helper function to find user by credentials

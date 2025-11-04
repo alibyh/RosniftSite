@@ -1,5 +1,5 @@
 // src/services/authService.ts
-import { findUserByCredentials, mockUsers } from '../features/auth/data/mockUsers';
+import { findUserByCredentials } from '../features/auth/data/mockUsers';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -41,7 +41,10 @@ export const authService = {
               username: user.username,
               company: user.company,
               companyId: user.companyId,
-              warehouses: user.warehouses,
+              warehouses: user.warehouses.map((warehouse, index) => ({
+                id: `${user.id}-warehouse-${index}`,
+                address: warehouse.address
+              })),
               role: user.role
             }
           };
