@@ -8,14 +8,17 @@ import react from '@vitejs/plugin-react'
 // Example: if repo is "alibyh/RosniftSite", use '/RosniftSite/'
 // If it's a user site (alibyh.github.io), use '/'
 export default defineConfig({
-  base: '/RosniftSite/', // ⚠️ CHANGE THIS to your actual GitHub repo name (without username)
+  base: '/RosniftSite/', // GitHub Pages base path
   plugins: [react()],
   server: {
     port: 3000,
-    https: {
-      key: fs.readFileSync(path.resolve(process.cwd(), 'localhost+2-key.pem')),
-      cert: fs.readFileSync(path.resolve(process.cwd(), 'localhost+2.pem')),
-    },
+    ...(fs.existsSync(path.resolve(process.cwd(), 'localhost+2-key.pem')) && 
+        fs.existsSync(path.resolve(process.cwd(), 'localhost+2.pem')) ? {
+      https: {
+        key: fs.readFileSync(path.resolve(process.cwd(), 'localhost+2-key.pem')),
+        cert: fs.readFileSync(path.resolve(process.cwd(), 'localhost+2.pem')),
+      }
+    } : {}),
     open: true,
   }
 })
