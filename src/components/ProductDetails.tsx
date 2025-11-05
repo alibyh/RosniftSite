@@ -404,13 +404,12 @@ const ProductDetails: React.FC = () => {
 
         <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
           {/* Product Information */}
-          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 66.66%' } }}>
+          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 50%' } }}>
             <Paper
               sx={{
                 p: 3,
                 backgroundColor: '#2a2a2a',
                 border: '1px solid #444',
-                mb: 3,
               }}
             >
               <Typography
@@ -506,7 +505,10 @@ const ProductDetails: React.FC = () => {
                 </Table>
               </TableContainer>
             </Paper>
+          </Box>
 
+          {/* Right Side: Map and Delivery Information */}
+          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 50%' }, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Map Section */}
             <Paper
               sx={{
@@ -594,10 +596,8 @@ const ProductDetails: React.FC = () => {
                 </>
               )}
             </Paper>
-          </Box>
 
-          {/* Delivery Information */}
-          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 33.33%' } }}>
+            {/* Delivery Information */}
             <Paper
               sx={{
                 p: 3,
