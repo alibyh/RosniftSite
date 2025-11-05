@@ -41,6 +41,7 @@ const ProductDetails: React.FC = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   
   // Get product data from navigation state
   const productData = location.state?.product as InventoryRow | null;
@@ -173,8 +174,20 @@ const ProductDetails: React.FC = () => {
         const map = mapRef.current;
 
         // Remove existing markers and route
-        const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
-        existingMarkers.forEach(marker => marker.remove());
+        markersRef.current.forEach(marker => marker.remove());
+        markersRef.current = [];
+
+        // Wait for map to be fully loaded before manipulating layers
+        if (!map.loaded()) {
+          console.log('📍 Waiting for map to load...');
+          await new Promise<void>((resolve) => {
+            if (map.loaded()) {
+              resolve();
+            } else {
+              map.once('load', () => resolve());
+            }
+          });
+        }
 
         // Remove existing route layer if it exists
         if (map.getLayer('route')) {
@@ -183,7 +196,6 @@ const ProductDetails: React.FC = () => {
         if (map.getSource('route')) {
           map.removeSource('route');
         }
-
 
         // Get route
         console.log('📍 Calculating route...');
@@ -203,35 +215,105 @@ const ProductDetails: React.FC = () => {
           setDistance(distanceKm);
         }
 
-        // Add route to map
-        if (map.getSource('route')) {
-          (map.getSource('route') as mapboxgl.GeoJSONSource).setData({
-            type: 'Feature',
-            geometry: routeData.geometry,
-            properties: {}
+        // Ensure map is still loaded before adding layers
+        if (!map.loaded()) {
+          console.warn('📍 Map unloaded during route calculation, waiting...');
+          await new Promise<void>((resolve) => {
+            if (map.loaded()) {
+              resolve();
+            } else {
+              map.once('load', () => resolve());
+            }
           });
-        } else {
-          map.addLayer({
-            id: 'route',
-            type: 'line',
-            source: {
+        }
+
+        // Add route to map
+        try {
+          if (map.getSource('route')) {
+            (map.getSource('route') as mapboxgl.GeoJSONSource).setData({
+              type: 'Feature',
+              geometry: routeData.geometry,
+              properties: {}
+            });
+          } else {
+            map.addSource('route', {
               type: 'geojson',
               data: {
                 type: 'Feature',
                 geometry: routeData.geometry,
                 properties: {}
               }
-            },
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': '#FED208',
-              'line-width': 6,
-              'line-opacity': 0.9
+            });
+
+            map.addLayer({
+              id: 'route',
+              type: 'line',
+              source: 'route',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#FED208',
+                'line-width': 6,
+                'line-opacity': 0.9
+              }
+            });
+          }
+        } catch (error: any) {
+          console.error('Error adding route layer:', error);
+          // If adding layer fails, try to add source first
+          if (error.message?.includes('Style is not done loading') || 
+              error.message?.includes('getOwnSource')) {
+            // Wait a bit and retry
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (map.loaded() && !map.getSource('route')) {
+              try {
+                map.addSource('route', {
+                  type: 'geojson',
+                  data: {
+                    type: 'Feature',
+                    geometry: routeData.geometry,
+                    properties: {}
+                  }
+                });
+
+                map.addLayer({
+                  id: 'route',
+                  type: 'line',
+                  source: 'route',
+                  layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                  },
+                  paint: {
+                    'line-color': '#FED208',
+                    'line-width': 6,
+                    'line-opacity': 0.9
+                  }
+                });
+              } catch (retryError) {
+                console.error('Retry failed:', retryError);
+              }
             }
-          });
+          }
+        }
+
+        // Add markers for origin and destination
+        try {
+          // Add origin marker (warehouse)
+          const originMarker = new mapboxgl.Marker({ color: '#4CAF50' })
+            .setLngLat(origin)
+            .addTo(map);
+          markersRef.current.push(originMarker);
+
+          // Add destination marker (product warehouse)
+          const destMarker = new mapboxgl.Marker({ color: '#F44336' })
+            .setLngLat(destination)
+            .addTo(map);
+          markersRef.current.push(destMarker);
+        } catch (markerError) {
+          console.error('Error adding markers:', markerError);
         }
 
         // Fit map to show both markers and route
@@ -266,6 +348,9 @@ const ProductDetails: React.FC = () => {
     return () => {
       isMounted = false;
       clearTimeout(timer);
+      // Clean up markers
+      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current = [];
     };
   }, [selectedWarehouse, destinationAddress]);
 
@@ -436,7 +521,7 @@ const ProductDetails: React.FC = () => {
                 variant="h5"
                 sx={{ color: '#FED208', mb: 2, fontWeight: 'bold' }}
               >
-                Маршрут доставки testing 2.0
+                Маршрут доставки
               </Typography>
               {distance !== null && (
                 <Typography
