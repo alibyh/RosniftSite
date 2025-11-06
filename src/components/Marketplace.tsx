@@ -24,6 +24,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import { parseCSV, InventoryRow } from '../utils/csvParser';
 import { RootState } from '../store/store';
 
@@ -33,6 +34,9 @@ interface ColumnWidths {
 
 type SortDirection = 'asc' | 'desc' | null;
 type SearchField = 'all' | 'balanceUnit' | 'companyName' | 'branch' | 'warehouseAddress' | 'materialClass' | 'className' | 'materialSubclass' | 'subclassName' | 'materialCode' | 'materialName' | 'unit' | 'quantity' | 'cost';
+type ColumnFilters = {
+  [key: string]: string;
+};
 
 const Marketplace: React.FC = () => {
   const navigate = useNavigate();
@@ -60,7 +64,24 @@ const Marketplace: React.FC = () => {
     cost: 150,
   });
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const tableRef = useRef<HTMLDivElement>(null);
+
+  const columns = [
+    { key: 'balanceUnit', label: 'БЕ', field: 'balanceUnit' },
+    { key: 'companyName', label: 'Наименование дочернего Общества', field: 'companyName' },
+    { key: 'branch', label: 'Филиал', field: 'branch' },
+    { key: 'warehouseAddress', label: 'Адрес склада', field: 'warehouseAddress' },
+    { key: 'materialClass', label: 'Класс МТР', field: 'materialClass' },
+    { key: 'className', label: 'Наименование класса', field: 'className' },
+    { key: 'materialSubclass', label: 'Подкласс МТР', field: 'materialSubclass' },
+    { key: 'subclassName', label: 'Наименование подкласса', field: 'subclassName' },
+    { key: 'materialCode', label: 'Код материала', field: 'materialCode' },
+    { key: 'materialName', label: 'Наименование материала', field: 'materialName' },
+    { key: 'unit', label: 'Ед. измерения', field: 'unit' },
+    { key: 'quantity', label: 'Количество', field: 'quantity' },
+    { key: 'cost', label: 'Стоимость, руб', field: 'cost' },
+  ];
 
   useEffect(() => {
     const loadData = async () => {
@@ -79,6 +100,55 @@ const Marketplace: React.FC = () => {
 
     loadData();
   }, []);
+
+  // Get unique values for a column (after user filtering)
+  const getUniqueColumnValues = useMemo(() => {
+    let baseFiltered = data;
+    
+    // Apply user-based filtering first
+    if (user) {
+      baseFiltered = baseFiltered.filter((row) => {
+        if (user.companyId && row.balanceUnit === user.companyId) {
+          return false;
+        }
+        if (user.warehouses && user.warehouses.length > 0) {
+          const userWarehouseAddresses = user.warehouses.map((wh) => {
+            return typeof wh === 'string' ? wh : wh.address || '';
+          });
+          if (userWarehouseAddresses.some(addr => 
+            row.warehouseAddress && row.warehouseAddress.trim() && 
+            addr && addr.trim() && 
+            row.warehouseAddress.toLowerCase().includes(addr.toLowerCase())
+          )) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    return (columnKey: string) => {
+      const field = columns.find(col => col.key === columnKey)?.field || columnKey;
+      const uniqueValues = new Set<string>();
+      
+      baseFiltered.forEach((row) => {
+        const value = (row as any)[field];
+        if (value !== null && value !== undefined && value !== '') {
+          uniqueValues.add(String(value));
+        }
+      });
+      
+      return Array.from(uniqueValues).sort((a, b) => {
+        // Sort numbers numerically if possible
+        const aNum = parseFloat(a.replace(/\s/g, ''));
+        const bNum = parseFloat(b.replace(/\s/g, ''));
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return aNum - bNum;
+        }
+        return a.localeCompare(b);
+      });
+    };
+  }, [data, user, columns]);
 
   const filteredData = useMemo(() => {
     let filtered = data;
@@ -138,6 +208,17 @@ const Marketplace: React.FC = () => {
       });
     }
 
+    // Apply column filters
+    Object.entries(columnFilters).forEach(([columnKey, filterValue]) => {
+      if (filterValue && filterValue.trim()) {
+        const field = columns.find(col => col.key === columnKey)?.field || columnKey;
+        filtered = filtered.filter((row) => {
+          const rowValue = String((row as any)[field] || '').trim();
+          return rowValue === filterValue.trim();
+        });
+      }
+    });
+
     // Apply sorting
     if (sortColumn && sortDirection) {
       filtered = [...filtered].sort((a, b) => {
@@ -164,7 +245,7 @@ const Marketplace: React.FC = () => {
     }
 
     return filtered;
-  }, [data, user, searchTerm, searchField, sortColumn, sortDirection]);
+  }, [data, user, searchTerm, searchField, sortColumn, sortDirection, columnFilters]);
 
   const handleSort = (columnKey: string) => {
     if (sortColumn === columnKey) {
@@ -207,21 +288,23 @@ const Marketplace: React.FC = () => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const columns = [
-    { key: 'balanceUnit', label: 'БЕ', field: 'balanceUnit' },
-    { key: 'companyName', label: 'Наименование дочернего Общества', field: 'companyName' },
-    { key: 'branch', label: 'Филиал', field: 'branch' },
-    { key: 'warehouseAddress', label: 'Адрес склада', field: 'warehouseAddress' },
-    { key: 'materialClass', label: 'Класс МТР', field: 'materialClass' },
-    { key: 'className', label: 'Наименование класса', field: 'className' },
-    { key: 'materialSubclass', label: 'Подкласс МТР', field: 'materialSubclass' },
-    { key: 'subclassName', label: 'Наименование подкласса', field: 'subclassName' },
-    { key: 'materialCode', label: 'Код материала', field: 'materialCode' },
-    { key: 'materialName', label: 'Наименование материала', field: 'materialName' },
-    { key: 'unit', label: 'Ед. измерения', field: 'unit' },
-    { key: 'quantity', label: 'Количество', field: 'quantity' },
-    { key: 'cost', label: 'Стоимость, руб', field: 'cost' },
-  ];
+  const handleColumnFilterChange = (columnKey: string, value: string) => {
+    setColumnFilters((prev) => {
+      if (value === '') {
+        const newFilters = { ...prev };
+        delete newFilters[columnKey];
+        return newFilters;
+      }
+      return {
+        ...prev,
+        [columnKey]: value,
+      };
+    });
+  };
+
+  const clearAllFilters = () => {
+    setColumnFilters({});
+  };
 
   const searchFieldOptions = [
     { value: 'all', label: 'Все поля' },
@@ -368,18 +451,41 @@ const Marketplace: React.FC = () => {
           </Box>
         </Paper>
 
-        <Typography
-          variant="body2"
-          sx={{ color: '#aaa', mb: 2 }}
-        >
-          Найдено записей: {filteredData.length}
-          {sortColumn && (
-            <span style={{ marginLeft: '16px' }}>
-              Сортировка: {columns.find((col) => col.key === sortColumn)?.label}{' '}
-              {sortDirection === 'asc' ? '↑' : '↓'}
-            </span>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{ color: '#aaa' }}
+          >
+            Найдено записей: {filteredData.length}
+            {sortColumn && (
+              <span style={{ marginLeft: '16px' }}>
+                Сортировка: {columns.find((col) => col.key === sortColumn)?.label}{' '}
+                {sortDirection === 'asc' ? '↑' : '↓'}
+              </span>
+            )}
+            {Object.keys(columnFilters).length > 0 && (
+              <span style={{ marginLeft: '16px' }}>
+                Активных фильтров: {Object.keys(columnFilters).length}
+              </span>
+            )}
+          </Typography>
+          {Object.keys(columnFilters).length > 0 && (
+            <Typography
+              variant="body2"
+              onClick={clearAllFilters}
+              sx={{
+                color: '#FED208',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                '&:hover': {
+                  opacity: 0.8,
+                },
+              }}
+            >
+              Очистить все фильтры
+            </Typography>
           )}
-        </Typography>
+        </Box>
 
         <TableContainer
           ref={tableRef}
@@ -486,6 +592,91 @@ const Marketplace: React.FC = () => {
                           }}
                         />
                       </Box>
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+              <TableRow>
+                {columns.map((column) => {
+                  const uniqueValues = getUniqueColumnValues(column.key);
+                  const hasFilter = columnFilters[column.key];
+                  return (
+                    <TableCell
+                      key={`filter-${column.key}`}
+                      sx={{
+                        backgroundColor: '#1a1a1a',
+                        borderRight: '1px solid #444',
+                        width: `${columnWidths[column.key]}px`,
+                        minWidth: `${columnWidths[column.key]}px`,
+                        padding: '8px 4px',
+                        position: 'relative',
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Select
+                        value={columnFilters[column.key] || ''}
+                        onChange={(e) => handleColumnFilterChange(column.key, e.target.value)}
+                        displayEmpty
+                        size="small"
+                        sx={{
+                          width: '100%',
+                          fontSize: '0.75rem',
+                          color: '#fff',
+                          backgroundColor: hasFilter ? 'rgba(254, 210, 8, 0.15)' : 'transparent',
+                          '& .MuiOutlinedInput-notchedOutline': {
+                            borderColor: hasFilter ? '#FED208' : '#444',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#FED208',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#FED208',
+                          },
+                          '& .MuiSelect-select': {
+                            padding: '6px 32px 6px 8px',
+                            fontSize: '0.75rem',
+                          },
+                          '& .MuiSvgIcon-root': {
+                            color: hasFilter ? '#FED208' : '#888',
+                            fontSize: '1rem',
+                          },
+                        }}
+                        MenuProps={{
+                          PaperProps: {
+                            sx: {
+                              backgroundColor: '#2a2a2a',
+                              border: '1px solid #444',
+                              maxHeight: 300,
+                              '& .MuiMenuItem-root': {
+                                color: '#fff',
+                                fontSize: '0.75rem',
+                                '&:hover': {
+                                  backgroundColor: '#333',
+                                },
+                                '&.Mui-selected': {
+                                  backgroundColor: '#FED208',
+                                  color: '#000',
+                                  '&:hover': {
+                                    backgroundColor: '#e6bd07',
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        }}
+                      >
+                        <MenuItem value="">
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <FilterListIcon sx={{ fontSize: '0.875rem', color: '#888' }} />
+                            <span style={{ fontStyle: 'italic', color: '#888' }}>Все</span>
+                          </Box>
+                        </MenuItem>
+                        {uniqueValues.map((value) => (
+                          <MenuItem key={value} value={value}>
+                            {value}
+                          </MenuItem>
+                        ))}
+                      </Select>
                     </TableCell>
                   );
                 })}

@@ -34,10 +34,6 @@ export const parseCSV = async (): Promise<InventoryRow[]> => {
         // Handle unquoted fields that might contain commas
         transformHeader: (header) => header.trim(),
         complete: (results) => {
-          // Debug: log first few rows to see structure
-          if (results.data.length > 0) {
-            console.log('CSV parsing - First row keys:', Object.keys(results.data[0]));
-          }
           // Map CSV headers to our interface
           const headerMap: Record<string, keyof InventoryRow> = {
             'БЕ (балансовая единица) держателя запаса': 'balanceUnit',

@@ -14,9 +14,9 @@ export interface MockUser {
     {
       id: '1',
       username: 'alibyh',
-      password: 'popopo', // Change this for security!
-      company: 'Роснефть',
-      branch: 'ООО "РН-Туапсинский НПЗ"	',
+      password: 'popopo',
+      company: 'ООО "РН-Туапсинский НПЗ',
+      branch: '',
       fullName: 'Али Б',
       companyId: '1221',
       warehouses: [

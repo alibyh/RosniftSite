@@ -13,7 +13,9 @@ export interface AuthResponse {
   user: {
     id: string;
     username: string;
+    fullName: string;
     company: string;
+    branch?: string;
     companyId: string;
     warehouses: Array<{ id: string; address: string }>;
     role: 'admin' | 'user' | 'manager';
@@ -39,7 +41,9 @@ export const authService = {
             user: {
               id: user.id,
               username: user.username,
+              fullName: user.fullName,
               company: user.company,
+              branch: user.branch,
               companyId: user.companyId,
               warehouses: user.warehouses.map((warehouse, index) => ({
                 id: `${user.id}-warehouse-${index}`,

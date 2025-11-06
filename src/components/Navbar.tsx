@@ -97,10 +97,10 @@ const Navbar: React.FC = () => {
                   fontWeight: "bold",
                 }}
               >
-                {user.username?.charAt(0).toUpperCase() || <PersonIcon />}
+                {user.fullName?.charAt(0).toUpperCase() || <PersonIcon />}
               </Avatar>
               <Typography variant="body2" sx={{ color: "#fff" }}>
-                {user.username}
+                {user.fullName}
               </Typography>
             </Box>
             <Menu

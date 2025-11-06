@@ -144,8 +144,10 @@ const ProductDetails: React.FC = () => {
         }
         
         // Geocode both addresses
-        const origin = await geocodeAddress(selectedWarehouse);
-        const destination = await geocodeAddress(destinationAddress);
+        // Origin = product warehouse (where seller ships FROM)
+        // Destination = user's warehouse (where they deliver TO)
+        const origin = await geocodeAddress(destinationAddress);
+        const destination = await geocodeAddress(selectedWarehouse);
         
         console.log('Geocoding results:', { origin, destination });
 
@@ -301,13 +303,13 @@ const ProductDetails: React.FC = () => {
 
         // Add markers for origin and destination
         try {
-          // Add origin marker (warehouse)
+          // Add origin marker (product warehouse - where seller ships FROM)
           const originMarker = new mapboxgl.Marker({ color: '#4CAF50' })
             .setLngLat(origin)
             .addTo(map);
           markersRef.current.push(originMarker);
 
-          // Add destination marker (product warehouse)
+          // Add destination marker (user's warehouse - where they deliver TO)
           const destMarker = new mapboxgl.Marker({ color: '#F44336' })
             .setLngLat(destination)
             .addTo(map);
@@ -622,12 +624,49 @@ const ProductDetails: React.FC = () => {
                     },
                   }}
                 >
-                  Склад отгрузки
+                  Склад отгрузки (откуда)
+                </InputLabel>
+                <Select
+                  value={destinationAddress}
+                  onChange={(e) => setDestinationAddress(e.target.value)}
+                  label="Склад отгрузки (откуда)"
+                  sx={{
+                    color: '#fff',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#555',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#FED208',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#FED208',
+                    },
+                    '& .MuiSvgIcon-root': {
+                      color: '#FED208',
+                    },
+                  }}
+                >
+                  <MenuItem value={productData.warehouseAddress}>
+                    {productData.warehouseAddress || 'Адрес из данных'}
+                  </MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth sx={{ mb: 3 }}>
+                <InputLabel
+                  sx={{
+                    color: '#aaa',
+                    '&.Mui-focused': {
+                      color: '#FED208',
+                    },
+                  }}
+                >
+                  Адрес назначения (куда)
                 </InputLabel>
                 <Select
                   value={selectedWarehouse}
                   onChange={(e) => setSelectedWarehouse(e.target.value)}
-                  label="Склад отгрузки"
+                  label="Адрес назначения (куда)"
                   sx={{
                     color: '#fff',
                     '& .MuiOutlinedInput-notchedOutline': {
@@ -658,43 +697,6 @@ const ProductDetails: React.FC = () => {
                   ) : (
                     <MenuItem value="">Нет доступных складов</MenuItem>
                   )}
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel
-                  sx={{
-                    color: '#aaa',
-                    '&.Mui-focused': {
-                      color: '#FED208',
-                    },
-                  }}
-                >
-                  Адрес назначения
-                </InputLabel>
-                <Select
-                  value={destinationAddress}
-                  onChange={(e) => setDestinationAddress(e.target.value)}
-                  label="Адрес назначения"
-                  sx={{
-                    color: '#fff',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#555',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#FED208',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#FED208',
-                    },
-                    '& .MuiSvgIcon-root': {
-                      color: '#FED208',
-                    },
-                  }}
-                >
-                  <MenuItem value={productData.warehouseAddress}>
-                    {productData.warehouseAddress || 'Адрес из данных'}
-                  </MenuItem>
                 </Select>
               </FormControl>
 
