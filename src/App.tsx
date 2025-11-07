@@ -21,7 +21,7 @@ function App() {
         v7_relativeSplatPath: true,
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', width:'90%', minHeight: '100vh' }}>
         {isAuthenticated && <Navbar />}
         <Routes>
           <Route

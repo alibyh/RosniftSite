@@ -21,10 +21,11 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { InventoryRow } from '../utils/csvParser';
+import { MappedInventoryRow } from '../services/inventoryService';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { geocodeAddress, getRoute, calculateStraightLineDistance } from '../services/mapboxService';
+import './ProductDetails.css';
 
 // Set Mapbox access token (you'll need to get this from https://account.mapbox.com/access-tokens/)
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiYWxpYnloNzkiLCJhIjoiY21oa3JmMjE1MWphdDJqcXFzYWRiM2pwNSJ9.eTeDf44PmOr7DFpeMzSHXQ';
@@ -44,7 +45,7 @@ const ProductDetails: React.FC = () => {
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   
   // Get product data from navigation state
-  const productData = location.state?.product as InventoryRow | null;
+  const productData = location.state?.product as MappedInventoryRow | null;
 
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>(() => {
     if (user?.warehouses && user.warehouses.length > 0) {
@@ -358,12 +359,12 @@ const ProductDetails: React.FC = () => {
 
   if (!productData) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Container maxWidth="lg" className="product-details-error-container">
         <Alert severity="error">Продукт не найден</Alert>
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/marketplace')}
-          sx={{ mt: 2, color: '#FED208' }}
+          className="product-details-error-back-button"
         >
           Вернуться к списку
         </Button>
@@ -376,129 +377,106 @@ const ProductDetails: React.FC = () => {
   };
 
   return (
-    <Box sx={{ backgroundColor: '#1a1a1a', minHeight: '100vh', pb: 4 }}>
-      <Container maxWidth="lg" sx={{ pt: 4 }}>
+    <Box className="product-details-container">
+      <Container maxWidth="lg" className="product-details-content">
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={handleBack}
-          sx={{
-            mb: 3,
-            color: '#FED208',
-            '&:hover': {
-              backgroundColor: 'rgba(254, 210, 8, 0.1)',
-            },
-          }}
+          className="product-details-back-button"
         >
           Назад к списку
         </Button>
 
-        <Typography
-          variant="h4"
-          component="h1"
-          sx={{
-            color: '#FED208',
-            mb: 3,
-            fontWeight: 'bold',
-          }}
-        >
+        <Typography variant="h4" component="h1" className="product-details-title">
           Информация о продукте
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
+        <Box className="product-details-content-box">
           {/* Product Information */}
-          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 50%' } }}>
-            <Paper
-              sx={{
-                p: 3,
-                backgroundColor: '#2a2a2a',
-                border: '1px solid #444',
-              }}
-            >
-              <Typography
-                variant="h5"
-                sx={{ color: '#FED208', mb: 2, fontWeight: 'bold' }}
-              >
+          <Box className="product-details-left-box">
+            <Paper className="product-details-paper">
+              <Typography variant="h5" className="product-details-section-title">
                 Основная информация
               </Typography>
-              <Divider sx={{ mb: 2, borderColor: '#444' }} />
+              <Divider className="product-details-divider" style={{ marginBottom: '16px' }} />
 
               <TableContainer>
-                <Table sx={{ '& .MuiTableCell-root': { borderColor: '#444', color: '#fff' } }}>
+                <Table className="product-details-table">
                   <TableBody>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         БЕ (Балансовая единица)
                       </TableCell>
                       <TableCell>{productData.balanceUnit || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Наименование дочернего Общества
                       </TableCell>
                       <TableCell>{productData.companyName || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Филиал Общества
                       </TableCell>
                       <TableCell>{productData.branch || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Адрес склада
                       </TableCell>
                       <TableCell>{productData.warehouseAddress || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Класс МТР
                       </TableCell>
                       <TableCell>{productData.materialClass || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Наименование класса
                       </TableCell>
                       <TableCell>{productData.className || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Подкласс МТР
                       </TableCell>
                       <TableCell>{productData.materialSubclass || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Наименование подкласса
                       </TableCell>
                       <TableCell>{productData.subclassName || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         КСМ (код материала)
                       </TableCell>
                       <TableCell>{productData.materialCode || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Наименование материала
                       </TableCell>
                       <TableCell>{productData.materialName || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Единица измерения
                       </TableCell>
                       <TableCell>{productData.unit || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Количество
                       </TableCell>
                       <TableCell>{productData.quantity || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold', color: '#FED208' }}>
+                      <TableCell className="product-details-table-cell-label">
                         Стоимость, руб
                       </TableCell>
                       <TableCell>{productData.cost || '-'}</TableCell>
@@ -510,48 +488,26 @@ const ProductDetails: React.FC = () => {
           </Box>
 
           {/* Right Side: Map and Delivery Information */}
-          <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 50%' }, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Box className="product-details-right-box">
             {/* Map Section */}
-            <Paper
-              sx={{
-                p: 3,
-                backgroundColor: '#2a2a2a',
-                border: '1px solid #444',
-                minHeight: '500px',
-                position: 'relative',
-              }}
-            >
-              <Typography
-                variant="h5"
-                sx={{ color: '#FED208', mb: 2, fontWeight: 'bold' }}
-              >
+            <Paper className="product-details-paper map-paper">
+              <Typography variant="h5" className="product-details-section-title">
                 Маршрут доставки
               </Typography>
               {distance !== null && (
-                <Typography
-                  variant="h6"
-                  sx={{ color: '#fff', mb: 2 }}
-                >
+                <Typography variant="h6" className="product-details-distance-badge">
                   Расстояние: {distance} км
                 </Typography>
               )}
-              <Divider sx={{ mb: 2, borderColor: '#444' }} />
+              <Divider className="product-details-divider" style={{ marginBottom: '16px' }} />
               {mapError ? (
-              
-                <Alert 
-                  severity="error" 
-                  sx={{ 
-                    backgroundColor: '#2a2a2a',
-                    color: '#fff',
-                    '& .MuiAlert-icon': { color: '#f44336' }
-                  }}
-                >
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                <Alert severity="error" className="product-details-alert">
+                  <Typography variant="body2" style={{ marginBottom: '8px', fontWeight: 'bold' }}>
                     {mapError}
                   </Typography>
                   {mapError.includes('token') && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
+                    <Box style={{ marginTop: '16px' }}>
+                      <Typography variant="body2" style={{ marginBottom: '8px' }}>
                         Чтобы использовать Mapbox, вам нужно:
                       </Typography>
                       <ol style={{ marginLeft: '20px', fontSize: '0.875rem' }}>
@@ -565,32 +521,10 @@ const ProductDetails: React.FC = () => {
                 </Alert>
               ) : (
                 <>
-                  <Box sx={{ position: 'relative', width: '100%', height: '400px' }}>
-                    <Box
-                      ref={mapContainerRef}
-                      sx={{
-                        height: '100%',
-                        width: '100%',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        border: '2px solid #FED208',
-                      }}
-                    />
+                  <Box className="product-details-map-container">
+                    <Box ref={mapContainerRef} className="product-details-map-box" />
                     {loadingMap && (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)',
-                          color: '#000',
-                          backgroundColor: 'rgba(254, 210, 8, 0.8)',
-                          padding: '12px 24px',
-                          borderRadius: '8px',
-                          zIndex: 2,
-                          fontWeight: 'bold',
-                        }}
-                      >
+                      <Box className="product-details-map-loading">
                         Загрузка карты...
                       </Box>
                     )}
@@ -600,51 +534,21 @@ const ProductDetails: React.FC = () => {
             </Paper>
 
             {/* Delivery Information */}
-            <Paper
-              sx={{
-                p: 3,
-                backgroundColor: '#2a2a2a',
-                border: '1px solid #444',
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{ color: '#FED208', mb: 2, fontWeight: 'bold' }}
-              >
+            <Paper className="product-details-paper">
+              <Typography variant="h6" className="product-details-section-title">
                 Адреса доставки
               </Typography>
-              <Divider sx={{ mb: 3, borderColor: '#444' }} />
+              <Divider className="product-details-divider" style={{ marginBottom: '24px' }} />
 
-              <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel
-                  sx={{
-                    color: '#aaa',
-                    '&.Mui-focused': {
-                      color: '#FED208',
-                    },
-                  }}
-                >
+              <FormControl fullWidth className="product-details-form-control">
+                <InputLabel className="product-details-form-control-label">
                   Склад отгрузки (откуда)
                 </InputLabel>
                 <Select
                   value={destinationAddress}
                   onChange={(e) => setDestinationAddress(e.target.value)}
                   label="Склад отгрузки (откуда)"
-                  sx={{
-                    color: '#fff',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#555',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#FED208',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#FED208',
-                    },
-                    '& .MuiSvgIcon-root': {
-                      color: '#FED208',
-                    },
-                  }}
+                  className="product-details-select"
                 >
                   <MenuItem value={productData.warehouseAddress}>
                     {productData.warehouseAddress || 'Адрес из данных'}
@@ -652,36 +556,15 @@ const ProductDetails: React.FC = () => {
                 </Select>
               </FormControl>
 
-              <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel
-                  sx={{
-                    color: '#aaa',
-                    '&.Mui-focused': {
-                      color: '#FED208',
-                    },
-                  }}
-                >
+              <FormControl fullWidth className="product-details-form-control">
+                <InputLabel className="product-details-form-control-label">
                   Адрес назначения (куда)
                 </InputLabel>
                 <Select
                   value={selectedWarehouse}
                   onChange={(e) => setSelectedWarehouse(e.target.value)}
                   label="Адрес назначения (куда)"
-                  sx={{
-                    color: '#fff',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#555',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#FED208',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#FED208',
-                    },
-                    '& .MuiSvgIcon-root': {
-                      color: '#FED208',
-                    },
-                  }}
+                  className="product-details-select"
                 >
                   {user?.warehouses && user.warehouses.length > 0 ? (
                     user.warehouses.map((warehouse, index) => {
@@ -700,19 +583,7 @@ const ProductDetails: React.FC = () => {
                 </Select>
               </FormControl>
 
-              <Button
-                variant="contained"
-                fullWidth
-                sx={{
-                  backgroundColor: '#FED208',
-                  color: '#000',
-                  fontWeight: 'bold',
-                  py: 1.5,
-                  '&:hover': {
-                    backgroundColor: '#e6bd07',
-                  },
-                }}
-              >
+              <Button variant="contained" fullWidth className="product-details-order-button">
                 Оформить заказ
               </Button>
             </Paper>

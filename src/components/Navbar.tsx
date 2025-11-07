@@ -11,6 +11,7 @@ import {
   List,
   ListItem,
   ListItemText,
+  IconButton,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,7 +19,12 @@ import { RootState } from "../store/store";
 import { logout } from "../features/auth/authSlice";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
+import MenuIcon from "@mui/icons-material/Menu";
+import SettingsIcon from "@mui/icons-material/Settings";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import logo from "../assets/Rosneft_logo.svg";
+import "./Navbar.css";
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -41,29 +47,35 @@ const Navbar: React.FC = () => {
     navigate("/login");
   };
 
+  const handleMenuClick = () => {
+    // TODO: Add menu functionality
+    console.log("Menu clicked");
+  };
+
+  const handleSettingsClick = () => {
+    // TODO: Add settings functionality
+    console.log("Settings clicked");
+  };
+
+  const handleChatClick = () => {
+    // TODO: Add chat functionality
+    console.log("Chat clicked");
+  };
+
+  const handleProfileClick = () => {
+    // Open user profile menu (same as clicking on avatar)
+    handleClick({
+      currentTarget: document.querySelector(".navbar-user-info"),
+    } as React.MouseEvent<HTMLElement>);
+  };
+
   return (
-    <AppBar
-      position="static"
-      sx={{
-        backgroundColor: "#000000",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
-        padding: "15px 0",
-      }}
-    >
+    <AppBar position="static" className="navbar-appbar">
       <Toolbar>
         <Typography
-          variant="h6"
+          variant="h4"
           component="div"
-          sx={{
-            flexGrow: 1,
-            fontWeight: "bold",
-            color: "#FED208",
-            cursor: "pointer",
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 2,
-          }}
+          className="navbar-title"
           onClick={() => navigate("/marketplace")}
         >
           <div className="logo-round" style={{ width: "60px", height: "60px" }}>
@@ -72,183 +84,178 @@ const Navbar: React.FC = () => {
           Роснефть
         </Typography>
         {user && (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                cursor: "pointer",
-                padding: "4px 8px",
-                borderRadius: "4px",
-                "&:hover": {
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                },
-              }}
-              onClick={handleClick}
-            >
-              <Avatar
-                sx={{
-                  width: 36,
-                  height: 36,
-                  backgroundColor: "#FED208",
-                  color: "#000",
-                  fontSize: "1rem",
-                  fontWeight: "bold",
-                }}
+          <>
+            
+            <Box className="navbar-icons-box">
+            <IconButton
+                className="navbar-icon-button"
+                onClick={handleMenuClick}
+                aria-label="menu"
               >
-                {user.fullName?.charAt(0).toUpperCase() || <PersonIcon />}
-              </Avatar>
-              <Typography variant="body2" sx={{ color: "#fff" }}>
-                {user.fullName}
-              </Typography>
+                <MenuIcon className="navbar-icon" />
+              </IconButton>
+              <IconButton
+                className="navbar-icon-button"
+                onClick={handleChatClick}
+                aria-label="chat"
+              >
+                <ChatBubbleOutlineIcon className="navbar-icon" />
+              </IconButton>
+              <IconButton
+                className="navbar-icon-button"
+                onClick={handleSettingsClick}
+                aria-label="settings"
+              >
+                <SettingsIcon className="navbar-icon" />
+              </IconButton>
             </Box>
-            <Menu
-              anchorEl={anchorEl}
-              open={open}
-              onClose={handleClose}
-              PaperProps={{
-                sx: {
-                  backgroundColor: "#2a2a2a",
-                  border: "1px solid #444",
-                  minWidth: 300,
-                  mt: 1,
-                },
-              }}
-              transformOrigin={{ horizontal: "right", vertical: "top" }}
-              anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-            >
-              <Box sx={{ px: 2, py: 1 }}>
-                <Typography
-                  variant="h6"
-                  sx={{ color: "#FED208", fontWeight: "bold", mb: 1 }}
+            <Box className="navbar-user-box">
+              <Box className="navbar-user-info" onClick={handleClick}>
+                <IconButton
+                  className="navbar-icon-button"
+                  onClick={handleProfileClick}
+                  aria-label="profile"
                 >
-                  Информация о пользователе
+                  <AccountCircleIcon className="navbar-icon" />
+                </IconButton>
+                <Typography variant="body2" className="navbar-user-name">
+                  {user.fullName}
                 </Typography>
-                <Divider sx={{ borderColor: "#444", mb: 1 }} />
-                <List dense sx={{ py: 0 }}>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemText
-                      primary="Имя пользователя"
-                      secondary={user.username}
-                      primaryTypographyProps={{
-                        sx: { color: "#aaa", fontSize: "0.875rem" },
-                      }}
-                      secondaryTypographyProps={{
-                        sx: { color: "#fff", fontSize: "1rem" },
-                      }}
-                    />
-                  </ListItem>
-                  {user.fullName && (
-                    <ListItem sx={{ px: 0 }}>
+              </Box>
+              <Menu
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleClose}
+                PaperProps={{ className: "navbar-menu-paper" }}
+                transformOrigin={{ horizontal: "right", vertical: "top" }}
+                anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+              >
+                <Box className="navbar-menu-content">
+                  <Typography variant="h6" className="navbar-menu-title">
+                    Информация о пользователе
+                  </Typography>
+                  <Divider className="navbar-menu-divider" />
+                  <List dense className="navbar-menu-list">
+                    <ListItem className="navbar-menu-list-item">
                       <ListItemText
-                        primary="Полное имя"
-                        secondary={user.fullName}
+                        primary="Имя пользователя"
+                        secondary={user.username}
                         primaryTypographyProps={{
-                          sx: { color: "#aaa", fontSize: "0.875rem" },
+                          className: "navbar-menu-list-item-text-primary",
                         }}
                         secondaryTypographyProps={{
-                          sx: { color: "#fff", fontSize: "1rem" },
+                          className: "navbar-menu-list-item-text-secondary",
                         }}
                       />
                     </ListItem>
-                  )}
-                  {user.company && (
-                    <ListItem sx={{ px: 0 }}>
-                      <ListItemText
-                        primary="Компания"
-                        secondary={user.company}
-                        primaryTypographyProps={{
-                          sx: { color: "#aaa", fontSize: "0.875rem" },
-                        }}
-                        secondaryTypographyProps={{
-                          sx: { color: "#fff", fontSize: "1rem" },
-                        }}
-                      />
-                    </ListItem>
-                  )}
-                  {user.branch && (
-                    <ListItem sx={{ px: 0 }}>
-                      <ListItemText
-                        primary="Филиал"
-                        secondary={user.branch}
-                        primaryTypographyProps={{
-                          sx: { color: "#aaa", fontSize: "0.875rem" },
-                        }}
-                        secondaryTypographyProps={{
-                          sx: { color: "#fff", fontSize: "1rem" },
-                        }}
-                      />
-                    </ListItem>
-                  )}
-                  {user.role && (
-                    <ListItem sx={{ px: 0 }}>
-                      <ListItemText
-                        primary="Роль"
-                        secondary={
-                          user.role === "admin"
-                            ? "Администратор"
-                            : user.role === "manager"
-                            ? "Менеджер"
-                            : "Пользователь"
-                        }
-                        primaryTypographyProps={{
-                          sx: { color: "#aaa", fontSize: "0.875rem" },
-                        }}
-                        secondaryTypographyProps={{
-                          sx: { color: "#fff", fontSize: "1rem" },
-                        }}
-                      />
-                    </ListItem>
-                  )}
-                  {user.warehouses && user.warehouses.length > 0 && (
-                    <>
-                      <ListItem sx={{ px: 0, pt: 1 }}>
+                    {user.fullName && (
+                      <ListItem className="navbar-menu-list-item">
                         <ListItemText
-                          primary="Доступные склады"
+                          primary="Полное имя"
+                          secondary={user.fullName}
                           primaryTypographyProps={{
-                            sx: {
-                              color: "#aaa",
-                              fontSize: "0.875rem",
-                              mb: 1,
-                            },
+                            className: "navbar-menu-list-item-text-primary",
+                          }}
+                          secondaryTypographyProps={{
+                            className: "navbar-menu-list-item-text-secondary",
                           }}
                         />
                       </ListItem>
-                      {user.warehouses.map((warehouse, index) => {
-                        const address = typeof warehouse === 'string' 
-                          ? warehouse 
-                          : warehouse.address || '';
-                        return (
-                          <ListItem key={index} sx={{ px: 2, py: 0.5 }}>
-                            <ListItemText
-                              secondary={address}
-                              secondaryTypographyProps={{
-                                sx: { color: "#fff", fontSize: "0.875rem" },
-                              }}
-                            />
-                          </ListItem>
-                        );
-                      })}
-                    </>
-                  )}
-                </List>
-              </Box>
-              <Divider sx={{ borderColor: "#444" }} />
-              <MenuItem
-                onClick={handleLogout}
-                sx={{
-                  color: "#fff",
-                  "&:hover": {
-                    backgroundColor: "rgba(255, 255, 255, 0.1)",
-                  },
-                }}
-              >
-                <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
-                Выйти
-              </MenuItem>
-            </Menu>
-          </Box>
+                    )}
+                    {user.company && (
+                      <ListItem className="navbar-menu-list-item">
+                        <ListItemText
+                          primary="Компания"
+                          secondary={user.company}
+                          primaryTypographyProps={{
+                            className: "navbar-menu-list-item-text-primary",
+                          }}
+                          secondaryTypographyProps={{
+                            className: "navbar-menu-list-item-text-secondary",
+                          }}
+                        />
+                      </ListItem>
+                    )}
+                    {user.branch && (
+                      <ListItem className="navbar-menu-list-item">
+                        <ListItemText
+                          primary="Филиал"
+                          secondary={user.branch}
+                          primaryTypographyProps={{
+                            className: "navbar-menu-list-item-text-primary",
+                          }}
+                          secondaryTypographyProps={{
+                            className: "navbar-menu-list-item-text-secondary",
+                          }}
+                        />
+                      </ListItem>
+                    )}
+                    {user.role && (
+                      <ListItem className="navbar-menu-list-item">
+                        <ListItemText
+                          primary="Роль"
+                          secondary={
+                            user.role === "admin"
+                              ? "Администратор"
+                              : user.role === "manager"
+                              ? "Менеджер"
+                              : "Пользователь"
+                          }
+                          primaryTypographyProps={{
+                            className: "navbar-menu-list-item-text-primary",
+                          }}
+                          secondaryTypographyProps={{
+                            className: "navbar-menu-list-item-text-secondary",
+                          }}
+                        />
+                      </ListItem>
+                    )}
+                    {user.warehouses && user.warehouses.length > 0 && (
+                      <>
+                        <ListItem
+                          className="navbar-menu-list-item"
+                          style={{ paddingTop: "8px" }}
+                        >
+                          <ListItemText
+                            primary="Доступные склады"
+                            primaryTypographyProps={{
+                              className: "navbar-menu-list-item-text-primary",
+                              style: { marginBottom: "8px" },
+                            }}
+                          />
+                        </ListItem>
+                        {user.warehouses.map((warehouse, index) => {
+                          const address =
+                            typeof warehouse === "string"
+                              ? warehouse
+                              : warehouse.address || "";
+                          return (
+                            <ListItem
+                              key={index}
+                              className="navbar-menu-list-item-warehouse"
+                            >
+                              <ListItemText
+                                secondary={address}
+                                secondaryTypographyProps={{
+                                  className:
+                                    "navbar-menu-list-item-warehouse-text",
+                                }}
+                              />
+                            </ListItem>
+                          );
+                        })}
+                      </>
+                    )}
+                  </List>
+                </Box>
+                <Divider style={{ borderColor: "#444" }} />
+                <MenuItem onClick={handleLogout} className="navbar-menu-logout">
+                  <LogoutIcon className="navbar-menu-logout-icon" />
+                  Выйти
+                </MenuItem>
+              </Menu>
+            </Box>
+          </>
         )}
       </Toolbar>
     </AppBar>

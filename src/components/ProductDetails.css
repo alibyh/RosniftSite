@@ -1,0 +1,436 @@
+/* Product Details Container */
+.product-details-container {
+  background-color: #000000 !important;
+  min-height: 100vh;
+  padding-bottom: 32px;
+  position: relative;
+  color: #fff;
+}
+
+.product-details-container::before {
+  content: "";
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 20% 30%, rgba(254, 210, 8, 0.03) 0%, transparent 50%),
+              radial-gradient(circle at 80% 70%, rgba(246, 209, 6, 0.03) 0%, transparent 50%);
+  animation: backgroundShift 20s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.product-details-content {
+  padding-top: 32px;
+  position: relative;
+  z-index: 1;
+  width: 88% !important;
+  max-width: 88% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.product-details-content.MuiContainer-root {
+  width: 88% !important;
+  max-width: 88% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Back Button */
+.product-details-back-button {
+  margin-bottom: 4px !important;
+  margin-right:12px !important;
+  color: #FED208 !important;
+  border: 2px solid #FED208 !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  transition: all 0.3s ease;
+  text-transform: none !important;
+  font-weight: bold;
+}
+
+.product-details-back-button.MuiButton-root {
+  color: #FED208 !important;
+  border-color: #FED208 !important;
+}
+
+.product-details-back-button:hover {
+  background-color: rgba(254, 210, 8, 0.15);
+  box-shadow: 0 4px 15px rgba(254, 210, 8, 0.3);
+  transform: translateX(-4px);
+}
+
+/* Title */
+.product-details-title {
+  color: #FED208 !important;
+  margin-bottom: 24px;
+  font-weight: bold;
+  text-shadow: 0 0 20px rgba(254, 210, 8, 0.5), 0 0 40px rgba(254, 210, 8, 0.3);
+  font-size: 2.125rem;
+  letter-spacing: 0.5px;
+  position: relative;
+  display: inline-block;
+}
+
+.product-details-title.MuiTypography-root {
+  color: #FED208 !important;
+}
+
+.product-details-title::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, #FED208, #F6D106);
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(254, 210, 8, 0.5);
+}
+
+@media (max-width: 600px) {
+  .product-details-title {
+    font-size: 1.75rem;
+  }
+}
+
+/* Content Box */
+.product-details-content-box {
+  display: flex;
+  gap: 24px;
+  margin-top: 24px;
+  flex-direction: row;
+  width: 100%;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .product-details-content-box {
+    flex-direction: column;
+  }
+}
+
+.product-details-left-box {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .product-details-left-box {
+    flex: 1 1 100%;
+  }
+}
+
+.product-details-right-box {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .product-details-right-box {
+    flex: 1 1 100%;
+  }
+}
+
+/* Paper */
+.product-details-paper {
+  padding: 24px !important;
+  background-color: #1a1a1a !important;
+  border: 2px solid #FED208 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(254, 210, 8, 0.15), 0 0 30px rgba(254, 210, 8, 0.05) !important;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.product-details-paper.MuiPaper-root {
+  background-color: #1a1a1a !important;
+}
+
+.product-details-paper:hover {
+  box-shadow: 0 6px 25px rgba(254, 210, 8, 0.2), 0 0 40px rgba(254, 210, 8, 0.1);
+  border-color: #F6D106;
+}
+
+.product-details-paper.map-paper {
+
+  position: relative;
+}
+
+/* Make the left box paper match the map-paper height */
+.product-details-left-box .product-details-paper,
+.product-details-right-box .product-details-paper.map-paper {
+  height: 100%;
+
+}
+
+/* Ensure table container fills available space in left paper */
+.product-details-left-box .product-details-paper .MuiTableContainer-root {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+/* Section Title */
+.product-details-section-title {
+  color: #FED208 !important;
+  margin-bottom: 12px !important;
+  font-weight: bold;
+  text-shadow: 0 0 15px rgba(254, 210, 8, 0.4);
+  letter-spacing: 0.5px;
+}
+
+.product-details-section-title.MuiTypography-root {
+  color: #FED208 !important;
+}
+
+/* Divider */
+.product-details-divider {
+  border-color: rgba(254, 210, 8, 0.3);
+  border-width: 1px;
+}
+
+/* Table */
+.product-details-table .MuiTableCell-root {
+  border-color: rgba(254, 210, 8, 0.2) !important;
+  color: #fff !important;
+  transition: all 0.2s ease;
+}
+
+/* Ensure regular table cells (not labels) are white */
+.product-details-table .MuiTableBody .MuiTableCell-root:not(.product-details-table-cell-label) {
+  color: #fff !important;
+}
+
+.product-details-table .MuiTableRow-root:hover .MuiTableCell-root {
+  background-color: rgba(254, 210, 8, 0.05);
+}
+
+.product-details-table-cell-label {
+  font-weight: bold;
+  color: #FED208 !important;
+  text-shadow: 0 0 10px rgba(254, 210, 8, 0.3);
+}
+
+.product-details-table-cell-label.MuiTableCell-root {
+  color: #FED208 !important;
+}
+
+/* Distance Badge */
+.product-details-distance-badge {
+  color: #FED208 !important;
+  margin-bottom: 16px;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(254, 210, 8, 0.5);
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background-color: rgba(254, 210, 8, 0.1);
+  border: 1px solid rgba(254, 210, 8, 0.3);
+}
+
+.product-details-distance-badge.MuiTypography-root {
+  color: #FED208 !important;
+}
+
+/* Map */
+.product-details-map-container {
+  position: relative;
+  width: 100%;
+  height: 450px;
+  min-height: 400px;
+}
+
+.product-details-map-box {
+  height: 100%;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 3px solid #FED208;
+  box-shadow: 0 0 20px rgba(254, 210, 8, 0.3), inset 0 0 20px rgba(254, 210, 8, 0.1);
+  transition: all 0.3s ease;
+}
+
+.product-details-map-box:hover {
+  box-shadow: 0 0 30px rgba(254, 210, 8, 0.4), inset 0 0 30px rgba(254, 210, 8, 0.15);
+  border-color: #F6D106;
+}
+
+.product-details-map-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #000;
+  background-color: rgba(254, 210, 8, 0.8);
+  padding: 12px 24px;
+  border-radius: 8px;
+  z-index: 2;
+  font-weight: bold;
+}
+
+/* Form Controls */
+.product-details-form-control {
+  margin-bottom: 24px !important;
+}
+
+.product-details-form-control .MuiFormControl-root {
+  width: 100%;
+}
+
+.product-details-form-control-label {
+  color: #aaa !important;
+}
+
+.product-details-form-control-label.MuiInputLabel-root {
+  color: #aaa !important;
+}
+
+.product-details-form-control-label.Mui-focused {
+  color: #FED208 !important;
+}
+
+.product-details-form-control-label.MuiInputLabel-root.Mui-focused {
+  color: #FED208 !important;
+}
+
+.product-details-select {
+  color: #fff !important;
+  width: 100%;
+}
+
+.product-details-select .MuiSelect-select {
+  color: #fff !important;
+  background-color: transparent !important;
+}
+
+.product-details-select .MuiOutlinedInput-notchedOutline {
+  border-color: #555 !important;
+}
+
+.product-details-select:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+}
+
+.product-details-select.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+}
+
+.product-details-select .MuiSvgIcon-root {
+  color: #FED208 !important;
+}
+
+/* Select Menu Dropdown - Global styles for Material-UI Menu portal */
+.product-details-container .MuiPaper-root.MuiMenu-paper {
+  background-color: #2a2a2a !important;
+  border: 1px solid #444 !important;
+  color: #fff !important;
+}
+
+.product-details-container .MuiMenuItem-root {
+  color: #fff !important;
+  background-color: transparent !important;
+}
+
+.product-details-container .MuiMenuItem-root:hover {
+  background-color: #333 !important;
+}
+
+.product-details-container .MuiMenuItem-root.Mui-selected {
+  background-color: rgba(254, 210, 8, 0.2) !important;
+  color: #FED208 !important;
+}
+
+.product-details-container .MuiMenuItem-root.Mui-selected:hover {
+  background-color: rgba(254, 210, 8, 0.3) !important;
+}
+
+/* Ensure Select input field is styled */
+.product-details-select.MuiOutlinedInput-root {
+  color: #fff !important;
+}
+
+.product-details-select.MuiOutlinedInput-root .MuiOutlinedInput-input {
+  color: #fff !important;
+}
+
+/* Order Button */
+.product-details-order-button {
+  background: linear-gradient(135deg, #FED208 0%, #F6D106 100%);
+  color: #000 !important;
+  font-weight: bold;
+  padding: 12px 0;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(254, 210, 8, 0.3), 0 0 20px rgba(254, 210, 8, 0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: none;
+  font-size: 1rem;
+}
+
+.product-details-order-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.product-details-order-button:hover {
+  background: linear-gradient(135deg, #F6D106 0%, #FED208 100%);
+  box-shadow: 0 6px 20px rgba(254, 210, 8, 0.4), 0 0 30px rgba(254, 210, 8, 0.2);
+  transform: translateY(-2px);
+}
+
+.product-details-order-button:hover::before {
+  left: 100%;
+}
+
+.product-details-order-button:active {
+  transform: translateY(0);
+}
+
+/* Error States */
+.product-details-error-container {
+  margin-top: 32px;
+}
+
+.product-details-error-back-button {
+  margin-top: 16px !important;
+  color: #FED208 !important;
+}
+
+.product-details-error-back-button.MuiButton-root {
+  color: #FED208 !important;
+}
+
+.product-details-alert {
+  background-color: #2a2a2a !important;
+  color: #fff !important;
+}
+
+.product-details-alert.MuiAlert-root {
+  background-color: #2a2a2a !important;
+  color: #fff !important;
+}
+
+.product-details-alert .MuiAlert-message {
+  color: #fff !important;
+}
+
+.product-details-alert .MuiAlert-icon {
+  color: #f44336;
+}
+

@@ -25,8 +25,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { parseCSV, InventoryRow } from '../utils/csvParser';
+import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
 import { RootState } from '../store/store';
+import './Marketplace.css';
 
 interface ColumnWidths {
   [key: string]: number;
@@ -41,7 +42,7 @@ type ColumnFilters = {
 const Marketplace: React.FC = () => {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.auth.user);
-  const [data, setData] = useState<InventoryRow[]>([]);
+  const [data, setData] = useState<MappedInventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,19 +50,19 @@ const Marketplace: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>({
-    balanceUnit: 100,
-    companyName: 250,
-    branch: 150,
-    warehouseAddress: 300,
-    materialClass: 80,
-    className: 200,
-    materialSubclass: 120,
-    subclassName: 250,
-    materialCode: 150,
-    materialName: 350,
-    unit: 120,
-    quantity: 120,
-    cost: 150,
+    balanceUnit: 120,
+    companyName: 380,
+    branch: 180,
+    warehouseAddress: 350,
+    materialClass: 130,
+    className: 300,
+    materialSubclass: 150,
+    subclassName: 330,
+    materialCode: 180,
+    materialName: 380,
+    unit: 160,
+    quantity: 140,
+    cost: 180,
   });
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
@@ -88,11 +89,11 @@ const Marketplace: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const csvData = await parseCSV();
-        setData(csvData);
+        const inventoryData = await inventoryService.getAllInventory();
+        setData(inventoryData);
       } catch (err) {
         setError('Ошибка загрузки данных. Пожалуйста, обновите страницу.');
-        console.error('Error loading CSV:', err);
+        console.error('Error loading inventory:', err);
       } finally {
         setLoading(false);
       }
@@ -325,86 +326,36 @@ const Marketplace: React.FC = () => {
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-        }}
-      >
-        <CircularProgress sx={{ color: '#FED208' }} />
+      <Box className="marketplace-loading">
+        <CircularProgress className="marketplace-loading-spinner" />
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Container maxWidth="lg" className="marketplace-error-container">
         <Alert severity="error">{error}</Alert>
       </Container>
     );
   }
 
   return (
-    <Box sx={{ backgroundColor: '#1a1a1a', minHeight: '100vh', pb: 4 }}>
-      <Container maxWidth="xl" sx={{ pt: 4 }}>
-        <Typography
-          variant="h4"
-          component="h1"
-          sx={{
-            color: '#FED208',
-            mb: 3,
-            fontWeight: 'bold',
-          }}
-        >
+    <Box className="marketplace-container">
+      <Container maxWidth="xl" className="marketplace-content">
+        <Typography variant="h4" component="h1" className="marketplace-title">
           Складские запасы
         </Typography>
 
-        <Paper
-          sx={{
-            mb: 3,
-            p: 2,
-            backgroundColor: '#2a2a2a',
-            border: '1px solid #444',
-          }}
-        >
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <FormControl
-              sx={{
-                minWidth: 200,
-                '& .MuiOutlinedInput-root': {
-                  color: '#fff',
-                  '& fieldset': {
-                    borderColor: '#555',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: '#FED208',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#FED208',
-                  },
-                },
-                '& .MuiInputLabel-root': {
-                  color: '#aaa',
-                },
-                '& .MuiInputLabel-root.Mui-focused': {
-                  color: '#FED208',
-                },
-              }}
-              size="small"
-            >
+        <Paper className="marketplace-search-paper">
+          <Box className="marketplace-search-box">
+            <FormControl className="marketplace-form-control" size="small">
               <InputLabel>Фильтр поиска</InputLabel>
               <Select
                 value={searchField}
                 onChange={(e) => setSearchField(e.target.value as SearchField)}
                 label="Фильтр поиска"
-                sx={{
-                  color: '#fff',
-                  '& .MuiSvgIcon-root': {
-                    color: '#FED208',
-                  },
-                }}
+                className="marketplace-select"
               >
                 {searchFieldOptions.map((option) => (
                   <MenuItem key={option.value} value={option.value}>
@@ -415,6 +366,7 @@ const Marketplace: React.FC = () => {
             </FormControl>
             <TextField
               fullWidth
+              className="marketplace-textfield"
               placeholder={
                 searchField === 'all'
                   ? 'Поиск по всем полям...'
@@ -425,37 +377,16 @@ const Marketplace: React.FC = () => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#FED208' }} />
+                    <SearchIcon style={{ color: '#FED208' }} />
                   </InputAdornment>
                 ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  color: '#fff',
-                  '& fieldset': {
-                    borderColor: '#555',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: '#FED208',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#FED208',
-                  },
-                },
-                '& .MuiInputBase-input::placeholder': {
-                  color: '#aaa',
-                  opacity: 1,
-                },
               }}
             />
           </Box>
         </Paper>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography
-            variant="body2"
-            sx={{ color: '#aaa' }}
-          >
+        <Box className="marketplace-info-box">
+          <Typography variant="body2" className="marketplace-info-text">
             Найдено записей: {filteredData.length}
             {sortColumn && (
               <span style={{ marginLeft: '16px' }}>
@@ -470,18 +401,7 @@ const Marketplace: React.FC = () => {
             )}
           </Typography>
           {Object.keys(columnFilters).length > 0 && (
-            <Typography
-              variant="body2"
-              onClick={clearAllFilters}
-              sx={{
-                color: '#FED208',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                '&:hover': {
-                  opacity: 0.8,
-                },
-              }}
-            >
+            <Typography variant="body2" onClick={clearAllFilters} className="marketplace-clear-filters">
               Очистить все фильтры
             </Typography>
           )}
@@ -490,29 +410,9 @@ const Marketplace: React.FC = () => {
         <TableContainer
           ref={tableRef}
           component={Paper}
-          sx={{
-            backgroundColor: '#2a2a2a',
-            border: '1px solid #444',
-            maxHeight: 'calc(100vh - 280px)',
-            overflowY: 'auto',
-            overflowX: 'auto',
-            '&::-webkit-scrollbar': {
-              width: '12px',
-              height: '12px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: '#1a1a1a',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: '#555',
-              borderRadius: '6px',
-              '&:hover': {
-                backgroundColor: '#666',
-              },
-            },
-          }}
+          className="marketplace-table-container"
         >
-          <Table stickyHeader sx={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0) }}>
+          <Table stickyHeader style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0) }}>
             <TableHead>
               <TableRow>
                 {columns.map((column) => {
@@ -521,52 +421,22 @@ const Marketplace: React.FC = () => {
                   return (
                     <TableCell
                       key={column.key}
-                      sx={{
-                        backgroundColor: '#1a1a1a',
-                        color: '#FED208',
-                        fontWeight: 'bold',
-                        borderRight: '1px solid #444',
+                      className="marketplace-table-header"
+                      style={{
                         width: `${columnWidths[column.key]}px`,
                         minWidth: `${columnWidths[column.key]}px`,
-                        position: 'relative',
-                        padding: '12px 8px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        '&:hover': {
-                          backgroundColor: '#222',
-                        },
                       }}
                       onClick={() => handleSort(column.key)}
                     >
-                      <Box
-                        sx={{
-                          position: 'relative',
-                          display: 'flex',
-                          alignItems: 'center',
-                          width: '100%',
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                          }}
-                          title={column.label}
-                        >
+                      <Box className="marketplace-table-header-content">
+                        <Box className="marketplace-table-header-label" title={column.label}>
                           {column.label}
                           {isSorted && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.5 }}>
+                            <Box style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
                               {isAsc ? (
-                                <ArrowUpwardIcon sx={{ fontSize: 16, color: '#FED208' }} />
+                                <ArrowUpwardIcon style={{ fontSize: 16, color: '#FED208' }} />
                               ) : (
-                                <ArrowDownwardIcon sx={{ fontSize: 16, color: '#FED208' }} />
+                                <ArrowDownwardIcon style={{ fontSize: 16, color: '#FED208' }} />
                               )}
                             </Box>
                           )}
@@ -576,20 +446,7 @@ const Marketplace: React.FC = () => {
                             e.stopPropagation();
                             handleMouseDown(column.key, e);
                           }}
-                          sx={{
-                            position: 'absolute',
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: '4px',
-                            cursor: 'col-resize',
-                            backgroundColor: resizingColumn === column.key ? '#FED208' : 'transparent',
-                            '&:hover': {
-                              backgroundColor: '#FED208',
-                              opacity: 0.5,
-                            },
-                            transition: 'background-color 0.2s',
-                          }}
+                          className={`marketplace-table-header-resizer ${resizingColumn === column.key ? 'resizing' : ''}`}
                         />
                       </Box>
                     </TableCell>
@@ -603,13 +460,10 @@ const Marketplace: React.FC = () => {
                   return (
                     <TableCell
                       key={`filter-${column.key}`}
-                      sx={{
-                        backgroundColor: '#1a1a1a',
-                        borderRight: '1px solid #444',
+                      className="marketplace-table-filter-cell"
+                      style={{
                         width: `${columnWidths[column.key]}px`,
                         minWidth: `${columnWidths[column.key]}px`,
-                        padding: '8px 4px',
-                        position: 'relative',
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -618,57 +472,17 @@ const Marketplace: React.FC = () => {
                         onChange={(e) => handleColumnFilterChange(column.key, e.target.value)}
                         displayEmpty
                         size="small"
-                        sx={{
-                          width: '100%',
-                          fontSize: '0.75rem',
-                          color: '#fff',
-                          backgroundColor: hasFilter ? 'rgba(254, 210, 8, 0.15)' : 'transparent',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: hasFilter ? '#FED208' : '#444',
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#FED208',
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#FED208',
-                          },
-                          '& .MuiSelect-select': {
-                            padding: '6px 32px 6px 8px',
-                            fontSize: '0.75rem',
-                          },
-                          '& .MuiSvgIcon-root': {
-                            color: hasFilter ? '#FED208' : '#888',
-                            fontSize: '1rem',
-                          },
-                        }}
+                        className={`marketplace-table-filter-select ${hasFilter ? 'has-filter' : ''}`}
                         MenuProps={{
                           PaperProps: {
-                            sx: {
-                              backgroundColor: '#2a2a2a',
-                              border: '1px solid #444',
-                              maxHeight: 300,
-                              '& .MuiMenuItem-root': {
-                                color: '#fff',
-                                fontSize: '0.75rem',
-                                '&:hover': {
-                                  backgroundColor: '#333',
-                                },
-                                '&.Mui-selected': {
-                                  backgroundColor: '#FED208',
-                                  color: '#000',
-                                  '&:hover': {
-                                    backgroundColor: '#e6bd07',
-                                  },
-                                },
-                              },
-                            },
+                            className: "marketplace-table-filter-menu",
                           },
                         }}
                       >
                         <MenuItem value="">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <FilterListIcon sx={{ fontSize: '0.875rem', color: '#888' }} />
-                            <span style={{ fontStyle: 'italic', color: '#888' }}>Все</span>
+                          <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <FilterListIcon style={{ fontSize: '0.875rem', color: '#FED208' }} />
+                            <span style={{ fontStyle: 'italic', color: '#aaa' }}>Все</span>
                           </Box>
                         </MenuItem>
                         {uniqueValues.map((value) => (
@@ -685,58 +499,28 @@ const Marketplace: React.FC = () => {
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    align="center"
-                    sx={{ color: '#aaa', py: 4 }}
-                  >
-                    {searchTerm
-                      ? 'Записи не найдены'
-                      : 'Данные отсутствуют'}
+                  <TableCell colSpan={columns.length} align="center" className="marketplace-table-empty-cell">
+                    {searchTerm ? 'Записи не найдены' : 'Данные отсутствуют'}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredData.map((row, index) => (
-                  <TableRow
-                    key={index}
-                    sx={{
-                      '&:nth-of-type(odd)': {
-                        backgroundColor: '#222',
-                      },
-                      '&:hover': {
-                        backgroundColor: '#333',
-                      },
-                    }}
-                  >
+                  <TableRow key={index} className="marketplace-table-row">
                     {columns.map((column) => {
                       const value = (row as any)[column.field] || '-';
                       const isBalanceUnit = column.key === 'balanceUnit';
                       return (
                         <TableCell
                           key={column.key}
+                          className={`marketplace-table-cell ${isBalanceUnit ? 'clickable' : ''}`}
+                          style={{
+                            width: `${columnWidths[column.key]}px`,
+                            minWidth: `${columnWidths[column.key]}px`,
+                          }}
                           onClick={() => {
                             if (isBalanceUnit) {
                               navigate('/product-details', { state: { product: row } });
                             }
-                          }}
-                          sx={{
-                            color: '#fff',
-                            borderRight: '1px solid #444',
-                            width: `${columnWidths[column.key]}px`,
-                            minWidth: `${columnWidths[column.key]}px`,
-                            padding: '12px 8px',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            position: 'relative',
-                            cursor: isBalanceUnit ? 'pointer' : 'default',
-                            ...(isBalanceUnit && {
-                              '&:hover': {
-                                backgroundColor: 'rgba(254, 210, 8, 0.2)',
-                                color: '#FED208',
-                                fontWeight: 'bold',
-                              },
-                            }),
                           }}
                           title={typeof value === 'string' ? value : String(value)}
                         >
