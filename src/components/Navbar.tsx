@@ -4,7 +4,6 @@ import {
   Toolbar,
   Typography,
   Box,
-  Avatar,
   Menu,
   MenuItem,
   Divider,
@@ -18,7 +17,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/store";
 import { logout } from "../features/auth/authSlice";
 import LogoutIcon from "@mui/icons-material/Logout";
-import PersonIcon from "@mui/icons-material/Person";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
