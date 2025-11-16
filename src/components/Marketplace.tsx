@@ -20,6 +20,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  TablePagination,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
@@ -66,6 +67,8 @@ const Marketplace: React.FC = () => {
   });
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const columns = [
@@ -248,6 +251,27 @@ const Marketplace: React.FC = () => {
     return filtered;
   }, [data, user, searchTerm, searchField, sortColumn, sortDirection, columnFilters]);
 
+  // Calculate paginated data
+  const paginatedData = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredData.slice(startIndex, endIndex);
+  }, [filteredData, page, rowsPerPage]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [searchTerm, searchField, columnFilters, sortColumn, sortDirection]);
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   const handleSort = (columnKey: string) => {
     if (sortColumn === columnKey) {
       if (sortDirection === 'asc') {
@@ -386,20 +410,34 @@ const Marketplace: React.FC = () => {
         </Paper>
 
         <Box className="marketplace-info-box">
-          <Typography variant="body2" className="marketplace-info-text">
-            Найдено записей: {filteredData.length}
-            {sortColumn && (
-              <span style={{ marginLeft: '16px' }}>
-                Сортировка: {columns.find((col) => col.key === sortColumn)?.label}{' '}
-                {sortDirection === 'asc' ? '↑' : '↓'}
-              </span>
-            )}
-            {Object.keys(columnFilters).length > 0 && (
-              <span style={{ marginLeft: '16px' }}>
-                Активных фильтров: {Object.keys(columnFilters).length}
-              </span>
-            )}
-          </Typography>
+          <Box className="marketplace-info-left">
+            <Typography variant="body2" className="marketplace-info-text">
+              Найдено записей: {filteredData.length}
+              {sortColumn && (
+                <span style={{ marginLeft: '16px' }}>
+                  Сортировка: {columns.find((col) => col.key === sortColumn)?.label}{' '}
+                  {sortDirection === 'asc' ? '↑' : '↓'}
+                </span>
+              )}
+              {Object.keys(columnFilters).length > 0 && (
+                <span style={{ marginLeft: '16px' }}>
+                  Активных фильтров: {Object.keys(columnFilters).length}
+                </span>
+              )}
+            </Typography>
+            <TablePagination
+              component="div"
+              count={filteredData.length}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              labelRowsPerPage="Строк на странице:"
+              labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count !== -1 ? count : `более чем ${to}`}`}
+              className="marketplace-pagination-top"
+            />
+          </Box>
           {Object.keys(columnFilters).length > 0 && (
             <Typography variant="body2" onClick={clearAllFilters} className="marketplace-clear-filters">
               Очистить все фильтры
@@ -504,7 +542,7 @@ const Marketplace: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredData.map((row, index) => (
+                paginatedData.map((row, index) => (
                   <TableRow key={index} className="marketplace-table-row">
                     {columns.map((column) => {
                       const value = (row as any)[column.field] || '-';

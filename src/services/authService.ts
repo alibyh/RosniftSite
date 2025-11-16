@@ -81,10 +81,64 @@ export const authService = {
   },
 
   async validateToken(token: string): Promise<boolean> {
-    // Validate token with backend
-    const response = await fetch(`${API_BASE_URL}/auth/validate`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.ok;
+    // For development: Always return true for mock tokens
+    if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
+      return token.startsWith('mock-token-');
+    }
+    
+    // Production: Validate token with backend
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/validate`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // Token storage helpers
+  getStoredToken(): string | null {
+    // Check localStorage first (remember me), then sessionStorage
+    return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+  },
+
+  getStoredUser(): AuthResponse['user'] | null {
+    const userStr = localStorage.getItem('userSession') || sessionStorage.getItem('userSession');
+    if (!userStr) return null;
+    try {
+      return JSON.parse(userStr);
+    } catch {
+      return null;
+    }
+  },
+
+  getStorageType(): 'localStorage' | 'sessionStorage' | null {
+    if (localStorage.getItem('authToken')) return 'localStorage';
+    if (sessionStorage.getItem('authToken')) return 'sessionStorage';
+    return null;
+  },
+
+  clearStoredAuth(): void {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userSession');
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('userSession');
+  },
+
+  storeAuth(token: string, user: AuthResponse['user'], rememberMe: boolean): void {
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('authToken', token);
+    storage.setItem('userSession', JSON.stringify(user));
+    if (rememberMe) {
+      localStorage.setItem('rememberMe', 'true');
+    } else {
+      localStorage.removeItem('rememberMe');
+    }
+  },
+
+  getRememberMe(): boolean {
+    return localStorage.getItem('rememberMe') === 'true';
   },
 };

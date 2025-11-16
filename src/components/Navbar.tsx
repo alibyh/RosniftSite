@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/store";
 import { logout } from "../features/auth/authSlice";
+import { authService } from "../services/authService";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -41,6 +42,9 @@ const Navbar: React.FC = () => {
 
   const handleLogout = () => {
     handleClose();
+    // Clear storage
+    authService.clearStoredAuth();
+    // Clear Redux state
     dispatch(logout());
     navigate("/login");
   };

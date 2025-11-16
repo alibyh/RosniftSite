@@ -26,7 +26,7 @@
 }
 
 .marketplace-content {
-  padding-top: 32px;
+  padding-top: 0px;
   position: relative;
   z-index: 1;
 }
@@ -68,7 +68,7 @@
 /* Search Paper */
 .marketplace-search-paper {
   margin-bottom: 24px !important;
-  padding: 16px !important;
+  padding: 8px !important;
   background-color: #1a1a1a !important;
   border: 2px solid #FED208 !important;
   border-radius: 12px !important;
@@ -153,12 +153,23 @@
 .marketplace-info-box {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 16px;
+  gap: 16px;
+}
+
+.marketplace-info-left {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
 }
 
 .marketplace-info-text {
   color: #aaa !important;
+  display: flex;
+  align-items: center;
 }
 
 .marketplace-info-text.MuiTypography-root {
@@ -185,8 +196,6 @@
   background-color: #1a1a1a !important;
   border: 2px solid #FED208 !important;
   border-radius: 12px !important;
-  max-height: calc(100vh - 280px);
-  overflow-y: auto;
   overflow-x: auto;
   box-shadow: 0 4px 20px rgba(254, 210, 8, 0.15), 0 0 30px rgba(254, 210, 8, 0.05) !important;
 }
@@ -523,5 +532,70 @@
 
 .marketplace-error-container {
   margin-top: 32px;
+}
+
+/* Pagination */
+.marketplace-pagination-top {
+  background-color: transparent !important;
+  border: none !important;
+  color: #fff !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: auto !important;
+  
+}
+
+.marketplace-pagination-top .MuiTablePagination-toolbar {
+  color: #fff !important;
+  padding: 0 !important;
+  flex-wrap: wrap;
+  gap: 8px;
+  display: flex !important;
+  align-items: baseline !important;
+}
+
+.marketplace-pagination-top .MuiTablePagination-selectLabel,
+.marketplace-pagination-top .MuiTablePagination-displayedRows {
+  color: #aaa !important;
+  font-size: 0.875rem !important;
+  margin: 0 !important;
+}
+
+.marketplace-pagination-top .MuiTablePagination-select {
+  color: #fff !important;
+}
+
+.marketplace-pagination-top .MuiTablePagination-selectIcon {
+  color: #FED208 !important;
+}
+
+.marketplace-pagination-top .MuiIconButton-root {
+  color: #FED208 !important;
+  padding: 4px !important;
+}
+
+.marketplace-pagination-top .MuiIconButton-root:hover {
+  background-color: rgba(254, 210, 8, 0.1) !important;
+}
+
+.marketplace-pagination-top .MuiIconButton-root.Mui-disabled {
+  color: rgba(254, 210, 8, 0.3) !important;
+}
+
+.marketplace-pagination-top .MuiInputBase-root {
+  color: #fff !important;
+}
+
+.marketplace-pagination-top .MuiInputBase-root .MuiSelect-select {
+  color: #fff !important;
+  border-color: rgba(254, 210, 8, 0.3) !important;
+}
+
+.marketplace-pagination-top .MuiInputBase-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+}
+
+.marketplace-pagination-top .MuiInputBase-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
 }
 

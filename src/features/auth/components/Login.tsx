@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import './Login.css';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -20,63 +20,66 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Restore rememberMe state from storage on mount
+  useEffect(() => {
+    const savedRememberMe = authService.getRememberMe();
+    setRememberMe(savedRememberMe);
+  }, []);
+
   const toggleLanguage = () => {
     const newLang = i18n.language === 'ru' ? 'en' : 'ru';
     i18n.changeLanguage(newLang);
   };
 
-  // In Login.tsx handleSubmit
-const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  dispatch(clearError());
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    dispatch(clearError());
 
-  if (!username.trim() || !password) {
-    dispatch(loginFailure(t('login.errorRequired')));
-    return;
-  }
-
-  dispatch(loginStart());
-
-  try {
-    const response = await authService.login({ username, password });
-    
-    // Store token securely
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('authToken', response.token);
-    storage.setItem('userSession', JSON.stringify(response.user));
-
-    dispatch(loginSuccess({ user: response.user, token: response.token }));
-    navigate('/marketplace');
-  } catch (error) {
-    let errorMessage = t('login.error');
-    
-    if (error instanceof Error) {
-      const errorCode = error.message;
-      switch (errorCode) {
-        case 'INVALID_CREDENTIALS':
-          errorMessage = t('login.error');
-          break;
-        case 'LOGIN_FAILED':
-          errorMessage = t('login.errorLoginFailed');
-          break;
-        case 'SERVER_ERROR':
-          errorMessage = t('login.errorNetwork');
-          break;
-        case 'Network request failed':
-        case 'Failed to fetch':
-          errorMessage = t('login.errorNetwork');
-          break;
-        default:
-          // If it's a translated message already, use it; otherwise use default
-          errorMessage = errorCode.includes('Неверное') || errorCode.includes('Invalid') 
-            ? errorCode 
-            : t('login.error');
-      }
+    if (!username.trim() || !password) {
+      dispatch(loginFailure(t('login.errorRequired')));
+      return;
     }
-    
-    dispatch(loginFailure(errorMessage));
-  }
-};
+
+    dispatch(loginStart());
+
+    try {
+      const response = await authService.login({ username, password });
+      
+      // Store token and user using authService helper
+      authService.storeAuth(response.token, response.user, rememberMe);
+
+      dispatch(loginSuccess({ user: response.user, token: response.token }));
+      navigate('/marketplace');
+    } catch (error) {
+      let errorMessage = t('login.error');
+      
+      if (error instanceof Error) {
+        const errorCode = error.message;
+        switch (errorCode) {
+          case 'INVALID_CREDENTIALS':
+            errorMessage = t('login.error');
+            break;
+          case 'LOGIN_FAILED':
+            errorMessage = t('login.errorLoginFailed');
+            break;
+          case 'SERVER_ERROR':
+            errorMessage = t('login.errorNetwork');
+            break;
+          case 'Network request failed':
+          case 'Failed to fetch':
+            errorMessage = t('login.errorNetwork');
+            break;
+          default:
+            // If it's a translated message already, use it; otherwise use default
+            errorMessage = errorCode.includes('Неверное') || errorCode.includes('Invalid') 
+              ? errorCode 
+              : t('login.error');
+        }
+      }
+      
+      dispatch(loginFailure(errorMessage));
+    }
+  };
 
   return (
     <div className="login-container">
