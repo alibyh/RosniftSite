@@ -3,8 +3,10 @@ import { useSelector } from 'react-redux';
 import Login from './features/auth/components/Login';
 import Marketplace from './components/Marketplace';
 import ProductDetails from './components/ProductDetails';
+import AdminPanel from './components/AdminPanel';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import AuthInitializer from './components/AuthInitializer';
 import { RootState } from './store/store';
 import { Box } from '@mui/material';
@@ -55,6 +57,14 @@ function App() {
                 <ProtectedRoute>
                   <ProductDetails />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminPanel />
+                </AdminRoute>
               }
             />
           </Routes>

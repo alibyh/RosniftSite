@@ -55,8 +55,11 @@ const Navbar: React.FC = () => {
   };
 
   const handleSettingsClick = () => {
-    // TODO: Add settings functionality
-    console.log("Settings clicked");
+    if (user?.role === 'admin') {
+      navigate('/admin');
+    } else {
+      console.log("Settings clicked");
+    }
   };
 
   const handleChatClick = () => {
@@ -201,7 +204,7 @@ const Navbar: React.FC = () => {
                               ? "Администратор"
                               : user.role === "manager"
                               ? "Менеджер"
-                              : "Пользователь"
+                              : "Сотрудник"
                           }
                           primaryTypographyProps={{
                             className: "navbar-menu-list-item-text-primary",

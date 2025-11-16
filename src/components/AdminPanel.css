@@ -1,0 +1,266 @@
+.admin-container {
+  padding-top: 32px;
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  background: transparent;
+}
+
+.admin-content {
+  padding-top: 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.admin-title {
+  color: #FED208 !important;
+  font-weight: bold !important;
+  margin-bottom: 24px !important;
+  text-shadow: 0 0 10px rgba(254, 210, 8, 0.3);
+}
+
+.admin-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.admin-loading-spinner {
+  color: #FED208 !important;
+}
+
+.admin-error {
+  margin-bottom: 24px !important;
+  background-color: rgba(211, 47, 47, 0.1) !important;
+  border: 1px solid #d32f2f !important;
+  color: #fff !important;
+}
+
+.admin-paper {
+  background-color: #1a1a1a !important;
+  border: 2px solid #FED208 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(254, 210, 8, 0.15), 0 0 30px rgba(254, 210, 8, 0.05) !important;
+}
+
+.admin-tabs-container {
+  border-bottom: 1px solid rgba(254, 210, 8, 0.2);
+}
+
+.admin-tabs .MuiTab-root {
+  color: #aaa !important;
+  font-weight: 500 !important;
+}
+
+.admin-tabs .MuiTab-root.Mui-selected {
+  color: #FED208 !important;
+}
+
+.admin-tabs .MuiTabs-indicator {
+  background-color: #FED208 !important;
+}
+
+.admin-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.admin-section-header .MuiTypography-root {
+  color: #FED208 !important;
+  font-weight: bold !important;
+}
+
+.admin-add-button {
+  background-color: #FED208 !important;
+  color: #000 !important;
+  font-weight: bold !important;
+}
+
+.admin-add-button:hover {
+  background-color: #F6D106 !important;
+  box-shadow: 0 0 15px rgba(254, 210, 8, 0.5) !important;
+}
+
+.admin-table-container {
+  background-color: #1a1a1a !important;
+  border-radius: 8px !important;
+  overflow-x: auto;
+}
+
+.admin-table-container .MuiTable-root {
+  background-color: transparent !important;
+}
+
+.admin-table-container .MuiTableHead-root {
+  background-color: #0f0f0f !important;
+}
+
+.admin-table-container .MuiTableCell-head {
+  color: #FED208 !important;
+  font-weight: bold !important;
+  border-bottom: 2px solid rgba(254, 210, 8, 0.3) !important;
+}
+
+.admin-table-container .MuiTableCell-body {
+  color: #fff !important;
+  border-bottom: 1px solid rgba(254, 210, 8, 0.1) !important;
+}
+
+.admin-table-container .MuiTableRow-root {
+  transition: all 0.2s ease;
+}
+
+.admin-table-container .MuiTableRow-root:hover {
+  background-color: rgba(254, 210, 8, 0.05) !important;
+}
+
+.admin-table-container .MuiTableRow-root:nth-of-type(even) {
+  background-color: rgba(26, 26, 26, 0.5) !important;
+}
+
+.admin-edit-button {
+  color: #FED208 !important;
+}
+
+.admin-edit-button:hover {
+  background-color: rgba(254, 210, 8, 0.1) !important;
+}
+
+.admin-delete-button {
+  color: #f44336 !important;
+}
+
+.admin-delete-button:hover {
+  background-color: rgba(244, 67, 54, 0.1) !important;
+}
+
+.admin-role-chip {
+  font-weight: 500 !important;
+}
+
+.admin-role-chip.admin-role-admin {
+  background-color: rgba(244, 67, 54, 0.2) !important;
+  color: #f44336 !important;
+  border: 1px solid #f44336 !important;
+}
+
+.admin-role-chip.admin-role-manager {
+  background-color: rgba(255, 152, 0, 0.2) !important;
+  color: #ff9800 !important;
+  border: 1px solid #ff9800 !important;
+}
+
+.admin-role-chip.admin-role-user {
+  background-color: rgba(76, 175, 80, 0.2) !important;
+  color: #4caf50 !important;
+  border: 1px solid #4caf50 !important;
+}
+
+/* Dialog Styles */
+.admin-dialog .MuiDialogTitle-root {
+  color: #FED208 !important;
+  background-color: #1a1a1a !important;
+}
+
+.admin-dialog .MuiDialogContent-root {
+  background-color: #1a1a1a !important;
+  color: #fff !important;
+}
+
+.admin-dialog .MuiDialogActions-root {
+  background-color: #1a1a1a !important;
+  border-top: 1px solid rgba(254, 210, 8, 0.2);
+}
+
+.admin-dialog .MuiTextField-root .MuiInputLabel-root {
+  color: #aaa !important;
+}
+
+.admin-dialog .MuiTextField-root .MuiInputLabel-root.Mui-focused {
+  color: #FED208 !important;
+}
+
+.admin-dialog .MuiTextField-root .MuiOutlinedInput-root {
+  color: #fff !important;
+}
+
+.admin-dialog .MuiTextField-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(254, 210, 8, 0.3) !important;
+}
+
+.admin-dialog .MuiTextField-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+}
+
+.admin-dialog .MuiTextField-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+}
+
+.admin-dialog .MuiFormControl-root .MuiInputLabel-root {
+  color: #aaa !important;
+}
+
+.admin-dialog .MuiFormControl-root .MuiInputLabel-root.Mui-focused {
+  color: #FED208 !important;
+}
+
+.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root {
+  color: #fff !important;
+}
+
+.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(254, 210, 8, 0.3) !important;
+}
+
+.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+}
+
+.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+}
+
+.admin-dialog .MuiSelect-select {
+  color: #fff !important;
+}
+
+.admin-save-button {
+  background-color: #FED208 !important;
+  color: #000 !important;
+  font-weight: bold !important;
+}
+
+.admin-save-button:hover {
+  background-color: #F6D106 !important;
+}
+
+/* Override Material-UI Dialog styles */
+.MuiDialog-paper {
+  background-color: #1a1a1a !important;
+  color: #fff !important;
+}
+
+.MuiDialogTitle-root {
+  color: #FED208 !important;
+  border-bottom: 1px solid rgba(254, 210, 8, 0.2) !important;
+}
+
+.MuiDialogContent-root {
+  color: #fff !important;
+}
+
+.MuiDialogActions-root {
+  border-top: 1px solid rgba(254, 210, 8, 0.2) !important;
+}
+
+.MuiDialogActions-root .MuiButton-root {
+  color: #aaa !important;
+}
+
+.MuiDialogActions-root .MuiButton-root:hover {
+  color: #FED208 !important;
+}
+

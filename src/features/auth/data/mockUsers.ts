@@ -6,6 +6,7 @@ export interface MockUser {
     company: string;
     branch: string;
     companyId: string;
+    email: string;
     warehouses: Array<{address: string }>;
     role: 'admin' | 'user' | 'manager';
   }
@@ -18,6 +19,7 @@ export interface MockUser {
       company: 'ООО "РН-Туапсинский НПЗ',
       branch: '',
       fullName: 'Али Б',
+      email: 'alibyh@icloud.com',
       companyId: '1221',
       warehouses: [
         { address: 'край Красноярский, Ул Борисова 14а' },
@@ -25,6 +27,20 @@ export interface MockUser {
         { address: 'край Краснодарский р-н Туапсинский х Греческий ул Майкопская' },
       ],
       role: 'admin'
+    },
+    {
+      id: '2',
+      username: 'Yuliya',
+      password: 'popopo',
+      company: 'АО "Куйбышевский НПЗ"',
+      branch: '',
+      fullName: 'Yuliya',
+      email: 'alibyh@gmail.com',
+      companyId: '1329',
+      warehouses: [
+        { address: 'Самара, Московское шоссе 55, Самарская область, Россия' },
+      ],
+      role: 'manager'
     },
   ];
   

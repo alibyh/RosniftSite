@@ -109,6 +109,115 @@ export const inventoryService = {
       throw error;
     }
   },
+
+  /**
+   * Update an inventory item
+   */
+  async updateInventory(id: string, updates: Partial<MappedInventoryRow>): Promise<MappedInventoryRow> {
+    try {
+      // Map back to database format
+      const dbUpdates: Partial<InventoryRow> = {};
+      
+      if (updates.balanceUnit !== undefined) dbUpdates.БЕ = updates.balanceUnit;
+      if (updates.companyName !== undefined) dbUpdates['Наименование дочернего Общества'] = updates.companyName;
+      if (updates.branch !== undefined) dbUpdates['Филиал Общества (при наличии)'] = updates.branch;
+      if (updates.warehouseAddress !== undefined) dbUpdates['Адрес склада (Город, район)'] = updates.warehouseAddress;
+      if (updates.materialClass !== undefined) dbUpdates['Классы МТР'] = parseInt(updates.materialClass) || null;
+      if (updates.className !== undefined) dbUpdates['Наименование класса'] = updates.className;
+      if (updates.materialSubclass !== undefined) dbUpdates['Подклассы МТР'] = updates.materialSubclass;
+      if (updates.subclassName !== undefined) dbUpdates['Наименование подкласса'] = updates.subclassName;
+      if (updates.materialCode !== undefined) dbUpdates['КСМ (код материала)'] = parseInt(updates.materialCode) || null;
+      if (updates.materialName !== undefined) dbUpdates['Наименование материала'] = updates.materialName;
+      if (updates.unit !== undefined) dbUpdates['БЕИ (единица измерения)'] = updates.unit;
+      if (updates.quantity !== undefined) dbUpdates['Количество'] = parseFloat(updates.quantity.replace(/\s/g, '')) || null;
+      if (updates.cost !== undefined) dbUpdates['Стоимость запасов'] = updates.cost;
+
+      const { data, error } = await supabase
+        .from('inventory')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating inventory:', error);
+        throw new Error(`Ошибка обновления данных: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('Данные не найдены после обновления');
+      }
+
+      return mapInventoryRow(data);
+    } catch (error) {
+      console.error('Error in updateInventory:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete an inventory item
+   */
+  async deleteInventory(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting inventory:', error);
+        throw new Error(`Ошибка удаления данных: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Error in deleteInventory:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new inventory item
+   */
+  async createInventory(item: Omit<MappedInventoryRow, 'id'>): Promise<MappedInventoryRow> {
+    try {
+      // Map to database format
+      const dbItem: Omit<InventoryRow, 'id'> = {
+        БЕ: item.balanceUnit || null,
+        'Наименование дочернего Общества': item.companyName || null,
+        'Филиал Общества (при наличии)': item.branch || null,
+        'Адрес склада (Город, район)': item.warehouseAddress || null,
+        'Классы МТР': item.materialClass ? parseInt(item.materialClass) : null,
+        'Наименование класса': item.className || null,
+        'Подклассы МТР': item.materialSubclass || null,
+        'Наименование подкласса': item.subclassName || null,
+        'КСМ (код материала)': item.materialCode ? parseInt(item.materialCode) : null,
+        'Наименование материала': item.materialName || null,
+        'БЕИ (единица измерения)': item.unit || null,
+        'Количество': item.quantity ? parseFloat(item.quantity.replace(/\s/g, '')) : null,
+        'Стоимость запасов': item.cost || null,
+      };
+
+      const { data, error } = await supabase
+        .from('inventory')
+        .insert(dbItem)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating inventory:', error);
+        throw new Error(`Ошибка создания данных: ${error.message}`);
+      }
+
+      if (!data) {
+        throw new Error('Данные не созданы');
+      }
+
+      return mapInventoryRow(data);
+    } catch (error) {
+      console.error('Error in createInventory:', error);
+      throw error;
+    }
+  },
 };
 
 
