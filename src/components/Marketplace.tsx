@@ -13,19 +13,15 @@ import {
   TableHead,
   TableRow,
   Typography,
-  InputAdornment,
   CircularProgress,
   Alert,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   TablePagination,
+  Tabs,
+  Tab,
+  Autocomplete,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
 import { RootState } from '../store/store';
 import './Marketplace.css';
@@ -35,7 +31,6 @@ interface ColumnWidths {
 }
 
 type SortDirection = 'asc' | 'desc' | null;
-type SearchField = 'all' | 'balanceUnit' | 'companyName' | 'branch' | 'warehouseAddress' | 'materialClass' | 'className' | 'materialSubclass' | 'subclassName' | 'materialCode' | 'materialName' | 'unit' | 'quantity' | 'cost';
 type ColumnFilters = {
   [key: string]: string;
 };
@@ -46,14 +41,12 @@ const Marketplace: React.FC = () => {
   const [data, setData] = useState<MappedInventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchField, setSearchField] = useState<SearchField>('all');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [columnWidths, setColumnWidths] = useState<ColumnWidths>({
     balanceUnit: 120,
     companyName: 380,
-    branch: 180,
+    receiptDate: 110,
     warehouseAddress: 350,
     materialClass: 130,
     className: 300,
@@ -69,12 +62,13 @@ const Marketplace: React.FC = () => {
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [tabIndex, setTabIndex] = useState(0); // 0 = Складские запасы, 1 = Мои запасы
   const tableRef = useRef<HTMLDivElement>(null);
 
   const columns = [
     { key: 'balanceUnit', label: 'БЕ', field: 'balanceUnit' },
     { key: 'companyName', label: 'Наименование дочернего Общества', field: 'companyName' },
-    { key: 'branch', label: 'Филиал', field: 'branch' },
+    { key: 'receiptDate', label: 'Дата поступления', field: 'receiptDate' },
     { key: 'warehouseAddress', label: 'Адрес склада', field: 'warehouseAddress' },
     { key: 'materialClass', label: 'Класс МТР', field: 'materialClass' },
     { key: 'className', label: 'Наименование класса', field: 'className' },
@@ -105,31 +99,30 @@ const Marketplace: React.FC = () => {
     loadData();
   }, []);
 
-  // Get unique values for a column (after user filtering)
-  const getUniqueColumnValues = useMemo(() => {
-    let baseFiltered = data;
-    
-    // Apply user-based filtering first
-    if (user) {
-      baseFiltered = baseFiltered.filter((row) => {
-        if (user.companyId && row.balanceUnit === user.companyId) {
-          return false;
-        }
-        if (user.warehouses && user.warehouses.length > 0) {
-          const userWarehouseAddresses = user.warehouses.map((wh) => {
-            return typeof wh === 'string' ? wh : wh.address || '';
-          });
-          if (userWarehouseAddresses.some(addr => 
-            row.warehouseAddress && row.warehouseAddress.trim() && 
-            addr && addr.trim() && 
-            row.warehouseAddress.toLowerCase().includes(addr.toLowerCase())
-          )) {
-            return false;
-          }
-        }
-        return true;
-      });
+  // Base data for current tab: Складские запасы = exclude user's; Мои запасы = only by companyId
+  const dataForTab = useMemo(() => {
+    if (!user) return data;
+    if (tabIndex === 1) {
+      // Мои запасы: filter by companyId only
+      return user.companyId
+        ? data.filter((row) => row.balanceUnit === user.companyId)
+        : [];
     }
+    // Складские запасы: exclude user's (by companyId and by warehouse)
+    const userWarehouseAddresses = (user.warehouses || []).map((wh) =>
+      typeof wh === 'string' ? wh : (wh as { address?: string }).address || ''
+    );
+    const isUserRow = (row: MappedInventoryRow) => {
+      if (user.companyId && row.balanceUnit === user.companyId) return true;
+      if (userWarehouseAddresses.some((addr) => addr && row.warehouseAddress?.toLowerCase().includes(addr.trim().toLowerCase()))) return true;
+      return false;
+    };
+    return data.filter((row) => !isUserRow(row));
+  }, [data, user, tabIndex]);
+
+  // Get unique values for a column (based on current tab data)
+  const getUniqueColumnValues = useMemo(() => {
+    const baseFiltered = dataForTab;
 
     return (columnKey: string) => {
       const field = columns.find(col => col.key === columnKey)?.field || columnKey;
@@ -152,67 +145,12 @@ const Marketplace: React.FC = () => {
         return a.localeCompare(b);
       });
     };
-  }, [data, user, columns]);
+  }, [dataForTab, columns]);
 
   const filteredData = useMemo(() => {
-    let filtered = data;
+    let filtered = dataForTab;
 
-    // Filter out user's own products
-    // Don't show products where balanceUnit matches user's companyId
-    // or where warehouseAddress matches user's warehouses
-    if (user) {
-      filtered = filtered.filter((row) => {
-        // Exclude if balanceUnit matches user's companyId
-        if (user.companyId && row.balanceUnit === user.companyId) {
-          return false;
-        }
-        
-        // Exclude if warehouseAddress matches any of user's warehouses
-        if (user.warehouses && user.warehouses.length > 0) {
-          const userWarehouseAddresses = user.warehouses.map((wh) => {
-            return typeof wh === 'string' ? wh : wh.address || '';
-          });
-          if (userWarehouseAddresses.some(addr => 
-            row.warehouseAddress && row.warehouseAddress.trim() && 
-            addr && addr.trim() && 
-            row.warehouseAddress.toLowerCase().includes(addr.toLowerCase())
-          )) {
-            return false;
-          }
-        }
-        
-        return true;
-      });
-    }
-
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter((row) => {
-        if (searchField === 'all') {
-          return (
-            row.companyName?.toLowerCase().includes(searchLower) ||
-            row.materialName?.toLowerCase().includes(searchLower) ||
-            row.warehouseAddress?.toLowerCase().includes(searchLower) ||
-            row.materialCode?.toLowerCase().includes(searchLower) ||
-            row.className?.toLowerCase().includes(searchLower) ||
-            row.subclassName?.toLowerCase().includes(searchLower) ||
-            row.branch?.toLowerCase().includes(searchLower) ||
-            row.balanceUnit?.toLowerCase().includes(searchLower) ||
-            row.materialClass?.toLowerCase().includes(searchLower) ||
-            row.materialSubclass?.toLowerCase().includes(searchLower) ||
-            row.unit?.toLowerCase().includes(searchLower) ||
-            row.quantity?.toLowerCase().includes(searchLower) ||
-            row.cost?.toLowerCase().includes(searchLower)
-          );
-        } else {
-          const fieldValue = (row as any)[searchField];
-          return fieldValue?.toLowerCase().includes(searchLower);
-        }
-      });
-    }
-
-    // Apply column filters
+    // Apply column filters (advanced filter by column)
     Object.entries(columnFilters).forEach(([columnKey, filterValue]) => {
       if (filterValue && filterValue.trim()) {
         const field = columns.find(col => col.key === columnKey)?.field || columnKey;
@@ -249,7 +187,7 @@ const Marketplace: React.FC = () => {
     }
 
     return filtered;
-  }, [data, user, searchTerm, searchField, sortColumn, sortDirection, columnFilters]);
+  }, [dataForTab, sortColumn, sortDirection, columnFilters]);
 
   // Calculate paginated data
   const paginatedData = useMemo(() => {
@@ -261,7 +199,7 @@ const Marketplace: React.FC = () => {
   // Reset to first page when filters change
   useEffect(() => {
     setPage(0);
-  }, [searchTerm, searchField, columnFilters, sortColumn, sortDirection]);
+  }, [columnFilters, sortColumn, sortDirection]);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -332,23 +270,6 @@ const Marketplace: React.FC = () => {
     setColumnFilters({});
   };
 
-  const searchFieldOptions = [
-    { value: 'all', label: 'Все поля' },
-    { value: 'balanceUnit', label: 'БЕ' },
-    { value: 'companyName', label: 'Общество' },
-    { value: 'branch', label: 'Филиал' },
-    { value: 'warehouseAddress', label: 'Адрес склада' },
-    { value: 'materialClass', label: 'Класс МТР' },
-    { value: 'className', label: 'Наименование класса' },
-    { value: 'materialSubclass', label: 'Подкласс МТР' },
-    { value: 'subclassName', label: 'Наименование подкласса' },
-    { value: 'materialCode', label: 'Код материала' },
-    { value: 'materialName', label: 'Наименование материала' },
-    { value: 'unit', label: 'Ед. измерения' },
-    { value: 'quantity', label: 'Количество' },
-    { value: 'cost', label: 'Стоимость' },
-  ];
-
   if (loading) {
     return (
       <Box className="marketplace-loading">
@@ -368,47 +289,31 @@ const Marketplace: React.FC = () => {
   return (
     <Box className="marketplace-container">
       <Container maxWidth="xl" className="marketplace-content">
-        <Typography variant="h4" component="h1" className="marketplace-title">
-          Складские запасы
-        </Typography>
-
-        <Paper className="marketplace-search-paper">
-          <Box className="marketplace-search-box">
-            <FormControl className="marketplace-form-control" size="small">
-              <InputLabel>Фильтр поиска</InputLabel>
-              <Select
-                value={searchField}
-                onChange={(e) => setSearchField(e.target.value as SearchField)}
-                label="Фильтр поиска"
-                className="marketplace-select"
-              >
-                {searchFieldOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              className="marketplace-textfield"
-              placeholder={
-                searchField === 'all'
-                  ? 'Поиск по всем полям...'
-                  : `Поиск по ${searchFieldOptions.find((opt) => opt.value === searchField)?.label.toLowerCase()}...`
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon style={{ color: '#FED208' }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-        </Paper>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', marginBottom: 2 }}>
+          <Tabs
+            value={tabIndex}
+            onChange={(_e, newValue: number) => {
+              setTabIndex(newValue);
+              setPage(0);
+            }}
+            sx={{
+              minHeight: 56,
+              '& .MuiTab-root': {
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: '1rem',
+                minHeight: 56,
+                padding: '12px 20px',
+                textTransform: 'none',
+              },
+              '& .Mui-selected': { color: '#FED208' },
+              '& .MuiTabs-indicator': { backgroundColor: '#FED208' },
+            }}
+          >
+            <Tab label="Складские запасы" id="marketplace-tab-0" aria-controls="marketplace-tabpanel-0" />
+            <Tab label="Мои запасы" id="marketplace-tab-1" aria-controls="marketplace-tabpanel-1" />
+          </Tabs>
+        </Box>
 
         <Box className="marketplace-info-box">
           <Box className="marketplace-info-left">
@@ -496,6 +401,8 @@ const Marketplace: React.FC = () => {
                 {columns.map((column) => {
                   const uniqueValues = getUniqueColumnValues(column.key);
                   const hasFilter = columnFilters[column.key];
+                  const rawValue = columnFilters[column.key] || null;
+                  const filterValue = rawValue && uniqueValues.includes(rawValue) ? rawValue : null;
                   return (
                     <TableCell
                       key={`filter-${column.key}`}
@@ -506,30 +413,31 @@ const Marketplace: React.FC = () => {
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Select
-                        value={columnFilters[column.key] || ''}
-                        onChange={(e) => handleColumnFilterChange(column.key, e.target.value)}
-                        displayEmpty
+                      <Autocomplete
                         size="small"
-                        className={`marketplace-table-filter-select ${hasFilter ? 'has-filter' : ''}`}
-                        MenuProps={{
-                          PaperProps: {
-                            className: "marketplace-table-filter-menu",
+                        options={uniqueValues}
+                        value={filterValue}
+                        onChange={(_e, newValue) => handleColumnFilterChange(column.key, newValue ?? '')}
+                        getOptionLabel={(opt) => String(opt)}
+                        renderInput={(params) => (
+                          <TextField {...params} placeholder="Все" />
+                        )}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: 'rgba(42,42,42,0.99)',
+                            color: '#fff',
+                            '& fieldset': { borderColor: hasFilter ? '#FED208' : 'rgba(255,255,255,0.23)' },
+                            '&:hover fieldset': { borderColor: '#FED208' },
                           },
+                          '& .MuiInputBase-input': { color: '#fff' },
+                          '& .MuiAutocomplete-clearIndicator': { color: 'rgba(255,255,255,0.54)' },
+                          '& .MuiAutocomplete-popupIndicator': { color: 'rgba(255,255,255,0.54)' },
                         }}
-                      >
-                        <MenuItem value="">
-                          <Box style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <FilterListIcon style={{ fontSize: '0.875rem', color: '#FED208' }} />
-                            <span style={{ fontStyle: 'italic', color: '#aaa' }}>Все</span>
-                          </Box>
-                        </MenuItem>
-                        {uniqueValues.map((value) => (
-                          <MenuItem key={value} value={value}>
-                            {value}
-                          </MenuItem>
-                        ))}
-                      </Select>
+                        className={`marketplace-table-filter-select ${hasFilter ? 'has-filter' : ''}`}
+                        slotProps={{
+                          paper: { className: 'marketplace-table-filter-menu' },
+                        }}
+                      />
                     </TableCell>
                   );
                 })}
@@ -539,7 +447,7 @@ const Marketplace: React.FC = () => {
               {filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} align="center" className="marketplace-table-empty-cell">
-                    {searchTerm ? 'Записи не найдены' : 'Данные отсутствуют'}
+                    {Object.keys(columnFilters).length > 0 ? 'Записи не найдены по заданным фильтрам' : 'Данные отсутствуют'}
                   </TableCell>
                 </TableRow>
               ) : (

@@ -16,11 +16,11 @@ export interface MockUser {
       id: '1',
       username: 'alibyh',
       password: 'popopo',
-      company: 'ООО "РН-Туапсинский НПЗ',
+      company: 'ООО "РН-Бурение"',
       branch: '',
       fullName: 'Али Б',
       email: 'alibyh@icloud.com',
-      companyId: '1221',
+      companyId: '1244',
       warehouses: [
         { address: 'край Красноярский, Ул Борисова 14а' },
         { address: 'АО "Самара-Волго г. Самара, Московское ш., д. 55' },

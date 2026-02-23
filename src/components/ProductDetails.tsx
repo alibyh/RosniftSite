@@ -417,9 +417,9 @@ const ProductDetails: React.FC = () => {
                     </TableRow>
                     <TableRow>
                       <TableCell className="product-details-table-cell-label">
-                        Филиал Общества
+                        Дата поступления
                       </TableCell>
-                      <TableCell>{productData.branch || '-'}</TableCell>
+                      <TableCell>{productData.receiptDate || '-'}</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell className="product-details-table-cell-label">

@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import Login from './features/auth/components/Login';
 import Marketplace from './components/Marketplace';
 import ProductDetails from './components/ProductDetails';
@@ -8,12 +7,12 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import AuthInitializer from './components/AuthInitializer';
-import { RootState } from './store/store';
+import { useAppSelector } from './store/store';
 import { Box } from '@mui/material';
 
 function App() {
-  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
-  const isLoading = useSelector((state: RootState) => state.auth.isLoading);
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const isLoading = useAppSelector((state) => state.auth.isLoading);
 
   // Get base path from vite config for GitHub Pages
   const basePath = import.meta.env.BASE_URL || '/';

@@ -5,8 +5,8 @@ export interface InventoryRow {
   id: string;
   БЕ: string | null;
   'Наименование дочернего Общества': string | null;
-  'Филиал Общества (при наличии)': string | null;
-  'Адрес склада (Город, район)': string | null;
+  'Дата поступления': string | null;
+  'Адрес склада': string | null;
   'Классы МТР': number | null;
   'Наименование класса': string | null;
   'Подклассы МТР': string | null;
@@ -14,16 +14,18 @@ export interface InventoryRow {
   'КСМ (код материала)': number | null;
   'Наименование материала': string | null;
   'БЕИ (единица измерения)': string | null;
-  'Количество': number | null;
+  Количество: string | null;
   'Стоимость запасов': string | null;
+  'Плановая рентабельность': number | null;
+  'Цена запаса': string | null;
 }
 
-// Mapped interface for easier use in components (matching old CSV structure)
+// Mapped interface for UI (Цена запаса and Плановая рентабельность are hidden, not exposed)
 export interface MappedInventoryRow {
   id: string;
   balanceUnit: string;
   companyName: string;
-  branch: string;
+  receiptDate: string;
   warehouseAddress: string;
   materialClass: string;
   className: string;
@@ -36,30 +38,26 @@ export interface MappedInventoryRow {
   cost: string;
 }
 
-// Map database row to component-friendly format
 const mapInventoryRow = (row: InventoryRow): MappedInventoryRow => {
   return {
     id: row.id,
     balanceUnit: row.БЕ || '',
     companyName: row['Наименование дочернего Общества'] || '',
-    branch: row['Филиал Общества (при наличии)'] || '',
-    warehouseAddress: row['Адрес склада (Город, район)'] || '',
-    materialClass: row['Классы МТР']?.toString() || '',
+    receiptDate: row['Дата поступления'] || '',
+    warehouseAddress: row['Адрес склада'] || '',
+    materialClass: row['Классы МТР']?.toString() ?? '',
     className: row['Наименование класса'] || '',
-    materialSubclass: row['Подклассы МТР'] || '',
+    materialSubclass: row['Подклассы МТР'] ?? '',
     subclassName: row['Наименование подкласса'] || '',
-    materialCode: row['КСМ (код материала)']?.toString() || '',
+    materialCode: row['КСМ (код материала)']?.toString() ?? '',
     materialName: row['Наименование материала'] || '',
     unit: row['БЕИ (единица измерения)'] || '',
-    quantity: row['Количество']?.toString() || '',
-    cost: row['Стоимость запасов'] || '',
+    quantity: row.Количество ?? '',
+    cost: row['Стоимость запасов'] ?? '',
   };
 };
 
 export const inventoryService = {
-  /**
-   * Fetch all inventory items from Supabase
-   */
   async getAllInventory(): Promise<MappedInventoryRow[]> {
     try {
       const { data, error } = await supabase
@@ -83,9 +81,6 @@ export const inventoryService = {
     }
   },
 
-  /**
-   * Fetch a single inventory item by ID
-   */
   async getInventoryById(id: string): Promise<MappedInventoryRow | null> {
     try {
       const { data, error } = await supabase
@@ -110,26 +105,22 @@ export const inventoryService = {
     }
   },
 
-  /**
-   * Update an inventory item
-   */
   async updateInventory(id: string, updates: Partial<MappedInventoryRow>): Promise<MappedInventoryRow> {
     try {
-      // Map back to database format
       const dbUpdates: Partial<InventoryRow> = {};
-      
+
       if (updates.balanceUnit !== undefined) dbUpdates.БЕ = updates.balanceUnit;
       if (updates.companyName !== undefined) dbUpdates['Наименование дочернего Общества'] = updates.companyName;
-      if (updates.branch !== undefined) dbUpdates['Филиал Общества (при наличии)'] = updates.branch;
-      if (updates.warehouseAddress !== undefined) dbUpdates['Адрес склада (Город, район)'] = updates.warehouseAddress;
-      if (updates.materialClass !== undefined) dbUpdates['Классы МТР'] = parseInt(updates.materialClass) || null;
+      if (updates.receiptDate !== undefined) dbUpdates['Дата поступления'] = updates.receiptDate;
+      if (updates.warehouseAddress !== undefined) dbUpdates['Адрес склада'] = updates.warehouseAddress;
+      if (updates.materialClass !== undefined) dbUpdates['Классы МТР'] = parseInt(updates.materialClass, 10) || null;
       if (updates.className !== undefined) dbUpdates['Наименование класса'] = updates.className;
       if (updates.materialSubclass !== undefined) dbUpdates['Подклассы МТР'] = updates.materialSubclass;
       if (updates.subclassName !== undefined) dbUpdates['Наименование подкласса'] = updates.subclassName;
-      if (updates.materialCode !== undefined) dbUpdates['КСМ (код материала)'] = parseInt(updates.materialCode) || null;
+      if (updates.materialCode !== undefined) dbUpdates['КСМ (код материала)'] = parseInt(updates.materialCode, 10) || null;
       if (updates.materialName !== undefined) dbUpdates['Наименование материала'] = updates.materialName;
       if (updates.unit !== undefined) dbUpdates['БЕИ (единица измерения)'] = updates.unit;
-      if (updates.quantity !== undefined) dbUpdates['Количество'] = parseFloat(updates.quantity.replace(/\s/g, '')) || null;
+      if (updates.quantity !== undefined) dbUpdates.Количество = updates.quantity;
       if (updates.cost !== undefined) dbUpdates['Стоимость запасов'] = updates.cost;
 
       const { data, error } = await supabase
@@ -155,9 +146,6 @@ export const inventoryService = {
     }
   },
 
-  /**
-   * Delete an inventory item
-   */
   async deleteInventory(id: string): Promise<void> {
     try {
       const { error } = await supabase
@@ -175,26 +163,24 @@ export const inventoryService = {
     }
   },
 
-  /**
-   * Create a new inventory item
-   */
   async createInventory(item: Omit<MappedInventoryRow, 'id'>): Promise<MappedInventoryRow> {
     try {
-      // Map to database format
       const dbItem: Omit<InventoryRow, 'id'> = {
         БЕ: item.balanceUnit || null,
         'Наименование дочернего Общества': item.companyName || null,
-        'Филиал Общества (при наличии)': item.branch || null,
-        'Адрес склада (Город, район)': item.warehouseAddress || null,
-        'Классы МТР': item.materialClass ? parseInt(item.materialClass) : null,
+        'Дата поступления': item.receiptDate || null,
+        'Адрес склада': item.warehouseAddress || null,
+        'Классы МТР': item.materialClass ? parseInt(item.materialClass, 10) : null,
         'Наименование класса': item.className || null,
         'Подклассы МТР': item.materialSubclass || null,
         'Наименование подкласса': item.subclassName || null,
-        'КСМ (код материала)': item.materialCode ? parseInt(item.materialCode) : null,
+        'КСМ (код материала)': item.materialCode ? parseInt(item.materialCode, 10) : null,
         'Наименование материала': item.materialName || null,
         'БЕИ (единица измерения)': item.unit || null,
-        'Количество': item.quantity ? parseFloat(item.quantity.replace(/\s/g, '')) : null,
+        Количество: item.quantity || null,
         'Стоимость запасов': item.cost || null,
+        'Плановая рентабельность': null,
+        'Цена запаса': null,
       };
 
       const { data, error } = await supabase
@@ -219,7 +205,3 @@ export const inventoryService = {
     }
   },
 };
-
-
-
-

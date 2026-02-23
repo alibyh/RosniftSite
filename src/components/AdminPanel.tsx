@@ -245,6 +245,7 @@ const AdminPanel: React.FC = () => {
                   <TableRow>
                     <TableCell>БЕ</TableCell>
                     <TableCell>Общество</TableCell>
+                    <TableCell>Дата поступления</TableCell>
                     <TableCell>Адрес склада</TableCell>
                     <TableCell>Материал</TableCell>
                     <TableCell>Количество</TableCell>
@@ -257,6 +258,7 @@ const AdminPanel: React.FC = () => {
                     <TableRow key={product.id}>
                       <TableCell>{product.balanceUnit}</TableCell>
                       <TableCell>{product.companyName}</TableCell>
+                      <TableCell>{product.receiptDate}</TableCell>
                       <TableCell>{product.warehouseAddress}</TableCell>
                       <TableCell>{product.materialName}</TableCell>
                       <TableCell>{product.quantity}</TableCell>
@@ -367,9 +369,9 @@ const AdminPanel: React.FC = () => {
                 margin="normal"
               />
               <TextField
-                label="Филиал"
-                value={productFormData.branch || ''}
-                onChange={(e) => setProductFormData({ ...productFormData, branch: e.target.value })}
+                label="Дата поступления"
+                value={productFormData.receiptDate || ''}
+                onChange={(e) => setProductFormData({ ...productFormData, receiptDate: e.target.value })}
                 fullWidth
                 margin="normal"
               />
