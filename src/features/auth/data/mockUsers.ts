@@ -30,7 +30,7 @@ export interface MockUser {
     },
     {
       id: '2',
-      username: 'Yuliya',
+      username: 'yuliya',
       password: 'popopo',
       company: 'АО "Куйбышевский НПЗ"',
       branch: '',
