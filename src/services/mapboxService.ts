@@ -281,9 +281,44 @@ export const getRoute = async (
   }
 };
 
+/**
+ * Get route through multiple waypoints (2-25 coordinates)
+ * @param coordinates - Array of [longitude, latitude] in visit order
+ * @returns Combined route data or null
+ */
+export const getRouteWithWaypoints = async (
+  coordinates: [number, number][]
+): Promise<{ geometry: any; distance: number; duration: number } | null> => {
+  if (!coordinates || coordinates.length < 2) return null;
+  if (MAPBOX_API_KEY === 'YOUR_MAPBOX_ACCESS_TOKEN') return null;
+
+  try {
+    const coordsStr = coordinates.map(([lon, lat]) => `${lon},${lat}`).join(';');
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordsStr}?access_token=${MAPBOX_API_KEY}&geometries=geojson&overview=full&steps=false`;
+
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      return {
+        geometry: route.geometry,
+        distance: route.distance,
+        duration: route.duration,
+      };
+    }
+    return null;
+  } catch (error: any) {
+    console.error('Multi-waypoint route error:', error);
+    return null;
+  }
+};
+
 export default {
   geocodeAddress,
   getRoute,
+  getRouteWithWaypoints,
   calculateStraightLineDistance,
   MAPBOX_API_KEY
 };

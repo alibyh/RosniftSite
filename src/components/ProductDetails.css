@@ -277,6 +277,31 @@
   font-weight: bold;
 }
 
+/* Cart route markers - numbered waypoints */
+.cart-route-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: default;
+}
+.cart-route-marker-start {
+  background: #4CAF50;
+}
+.cart-route-marker-waypoint {
+  background: #2196F3;
+}
+.cart-route-marker-destination {
+  background: #F44336;
+}
+
 /* Form Controls */
 .product-details-form-control {
   margin-bottom: 24px !important;

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useAppSelector } from '../store/store';
 import {
   Box,
   Container,
@@ -19,11 +19,16 @@ import {
   Tabs,
   Tab,
   Autocomplete,
+  Button,
+  IconButton,
 } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
-import { RootState } from '../store/store';
+import { useChart } from '../contexts/ChartContext';
 import './Marketplace.css';
 
 interface ColumnWidths {
@@ -35,9 +40,22 @@ type ColumnFilters = {
   [key: string]: string;
 };
 
+/** Format number: space as thousands separator, comma as decimal separator */
+function formatNumber(value: string | number): string {
+  const str = String(value ?? '').trim();
+  if (!str || str === '-') return str;
+  const cleaned = str.replace(/\s/g, '').replace(',', '.');
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return str;
+  const parts = num.toString().split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const decPart = parts[1] ? ',' + parts[1] : '';
+  return intPart + decPart;
+}
+
 const Marketplace: React.FC = () => {
   const navigate = useNavigate();
-  const user = useSelector((state: RootState) => state.auth.user);
+  const user = useAppSelector((state) => state.auth.user);
   const [data, setData] = useState<MappedInventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,13 +75,32 @@ const Marketplace: React.FC = () => {
     unit: 160,
     quantity: 140,
     cost: 180,
+    chartActions: 200,
   });
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [tabIndex, setTabIndex] = useState(0); // 0 = Складские запасы, 1 = Мои запасы
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { addToChart, updateQuantity, removeFromChart, getQuantity } = useChart();
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const inventoryData = await inventoryService.getAllInventory();
+      setData(inventoryData);
+    } catch (err) {
+      setError('Ошибка загрузки данных. Пожалуйста, обновите страницу.');
+      console.error('Error loading inventory:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const columns = [
     { key: 'balanceUnit', label: 'БЕ', field: 'balanceUnit' },
@@ -81,23 +118,14 @@ const Marketplace: React.FC = () => {
     { key: 'cost', label: 'Стоимость, руб', field: 'cost' },
   ];
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const inventoryData = await inventoryService.getAllInventory();
-        setData(inventoryData);
-      } catch (err) {
-        setError('Ошибка загрузки данных. Пожалуйста, обновите страницу.');
-        console.error('Error loading inventory:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const tableWidth = useMemo(
+    () => columns.reduce((sum, c) => sum + (columnWidths[c.key] ?? 0), 0),
+    [columnWidths, columns]
+  );
 
+  useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Base data for current tab: Складские запасы = exclude user's; Мои запасы = only by companyId
   const dataForTab = useMemo(() => {
@@ -109,12 +137,12 @@ const Marketplace: React.FC = () => {
         : [];
     }
     // Складские запасы: exclude user's (by companyId and by warehouse)
-    const userWarehouseAddresses = (user.warehouses || []).map((wh) =>
-      typeof wh === 'string' ? wh : (wh as { address?: string }).address || ''
+    const userWarehouseAddresses = (user.warehouses || []).map((wh: string | { address?: string }) =>
+      typeof wh === 'string' ? wh : wh.address || ''
     );
     const isUserRow = (row: MappedInventoryRow) => {
       if (user.companyId && row.balanceUnit === user.companyId) return true;
-      if (userWarehouseAddresses.some((addr) => addr && row.warehouseAddress?.toLowerCase().includes(addr.trim().toLowerCase()))) return true;
+      if (userWarehouseAddresses.some((addr: string) => addr && row.warehouseAddress?.toLowerCase().includes(addr.trim().toLowerCase()))) return true;
       return false;
     };
     return data.filter((row) => !isUserRow(row));
@@ -270,6 +298,43 @@ const Marketplace: React.FC = () => {
     setColumnFilters({});
   };
 
+  const handleProfitabilityChange = async (balanceUnit: string, value: string) => {
+    try {
+      await inventoryService.updateProfitabilityForBalanceUnit(balanceUnit, value);
+      setData((prev) =>
+        prev.map((r) => (r.balanceUnit === balanceUnit ? { ...r, profitability: value } : r))
+      );
+    } catch (err) {
+      console.error('Error updating profitability:', err);
+      setUploadMessage({ type: 'error', text: 'Ошибка обновления рентабельности' });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.companyId) return;
+    e.target.value = '';
+    setUploadMessage(null);
+    setUploading(true);
+    try {
+      const text = await file.text();
+      const result = await inventoryService.updateInventoryFromFile(user.companyId, text);
+      setUploadMessage({
+        type: 'success',
+        text: `Обновлено: удалено ${result.deleted} записей, добавлено ${result.inserted} записей`,
+      });
+      await loadData();
+      setTimeout(() => setUploadMessage(null), 5000);
+    } catch (err) {
+      setUploadMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Ошибка при загрузке файла',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box className="marketplace-loading">
@@ -315,8 +380,104 @@ const Marketplace: React.FC = () => {
           </Tabs>
         </Box>
 
+        {uploadMessage && (
+          <Alert
+            severity={uploadMessage.type}
+            onClose={() => setUploadMessage(null)}
+            sx={{ marginBottom: 2 }}
+          >
+            {uploadMessage.text}
+          </Alert>
+        )}
+
+        {tabIndex === 1 && user?.companyId && dataForTab.length > 0 && (
+          <Paper
+            sx={{
+              p: 2,
+              mb: 2,
+              backgroundColor: 'rgba(42,42,42,0.95)',
+              border: '1px solid rgba(254,210,8,0.3)',
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1.5 }}>
+              Рентабельность по БЕ
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3 }}>
+              <Box>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>БЕ</Typography>
+                <Typography sx={{ color: '#fff', fontWeight: 500 }}>
+                  {dataForTab[0]?.balanceUnit || user.companyId}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                  Наименование дочернего Общества
+                </Typography>
+                <Typography sx={{ color: '#fff', fontWeight: 500 }} noWrap title={dataForTab[0]?.companyName}>
+                  {dataForTab[0]?.companyName || '-'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block', mb: 0.5 }}>
+                  Рентабельность, %
+                </Typography>
+                <TextField
+                  size="small"
+                  value={dataForTab[0]?.profitability ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setData((prev) =>
+                      prev.map((r) =>
+                        r.balanceUnit === user.companyId ? { ...r, profitability: val } : r
+                      )
+                    );
+                  }}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    const current = dataForTab[0]?.profitability ?? '';
+                    if (v !== current) handleProfitabilityChange(user.companyId, v);
+                  }}
+                  sx={{
+                    width: 100,
+                    '& .MuiOutlinedInput-root': {
+                      color: '#fff',
+                      '& fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
+                      '&:hover fieldset': { borderColor: '#FED208' },
+                    },
+                  }}
+                />
+              </Box>
+            </Box>
+          </Paper>
+        )}
+
         <Box className="marketplace-info-box">
           <Box className="marketplace-info-left">
+            {tabIndex === 1 && user?.companyId && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  style={{ display: 'none' }}
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<CloudUploadIcon />}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  sx={{
+                    marginRight: 2,
+                    borderColor: '#FED208',
+                    color: '#FED208',
+                    '&:hover': { borderColor: '#FED208', backgroundColor: 'rgba(254,210,8,0.08)' },
+                  }}
+                >
+                  {uploading ? 'Загрузка...' : 'Обновить данные'}
+                </Button>
+              </>
+            )}
             <Typography variant="body2" className="marketplace-info-text">
               Найдено записей: {filteredData.length}
               {sortColumn && (
@@ -356,7 +517,14 @@ const Marketplace: React.FC = () => {
           component={Paper}
           className="marketplace-table-container"
         >
-          <Table stickyHeader style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0) }}>
+          <Box
+            component="div"
+            sx={{
+              display: 'inline-flex',
+              width: 'auto',
+            }}
+          >
+            <Table stickyHeader style={{ tableLayout: 'fixed', width: tableWidth }}>
             <TableHead>
               <TableRow>
                 {columns.map((column) => {
@@ -418,7 +586,9 @@ const Marketplace: React.FC = () => {
                         options={uniqueValues}
                         value={filterValue}
                         onChange={(_e, newValue) => handleColumnFilterChange(column.key, newValue ?? '')}
-                        getOptionLabel={(opt) => String(opt)}
+                        getOptionLabel={(opt) =>
+                          (column.key === 'quantity' || column.key === 'cost') ? formatNumber(opt) : String(opt)
+                        }
                         renderInput={(params) => (
                           <TextField {...params} placeholder="Все" />
                         )}
@@ -451,35 +621,101 @@ const Marketplace: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedData.map((row, index) => (
-                  <TableRow key={index} className="marketplace-table-row">
-                    {columns.map((column) => {
-                      const value = (row as any)[column.field] || '-';
-                      const isBalanceUnit = column.key === 'balanceUnit';
-                      return (
-                        <TableCell
-                          key={column.key}
-                          className={`marketplace-table-cell ${isBalanceUnit ? 'clickable' : ''}`}
-                          style={{
-                            width: `${columnWidths[column.key]}px`,
-                            minWidth: `${columnWidths[column.key]}px`,
-                          }}
-                          onClick={() => {
-                            if (isBalanceUnit) {
-                              navigate('/product-details', { state: { product: row } });
-                            }
-                          }}
-                          title={typeof value === 'string' ? value : String(value)}
-                        >
-                          {value}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
+                    paginatedData.map((row, index) => (
+                    <TableRow key={index} className="marketplace-table-row">
+                      {columns.map((column) => {
+                        const rawValue = (row as any)[column.field] ?? '';
+                        const value = rawValue === '' || rawValue == null ? '-' : rawValue;
+                        const displayValue = (column.key === 'quantity' || column.key === 'cost')
+                          ? formatNumber(value)
+                          : value;
+                        const isBalanceUnit = column.key === 'balanceUnit';
+                        return (
+                          <TableCell
+                            key={column.key}
+                            className={`marketplace-table-cell ${isBalanceUnit ? 'clickable' : ''}`}
+                            style={{
+                              width: `${columnWidths[column.key]}px`,
+                              minWidth: `${columnWidths[column.key]}px`,
+                            }}
+                            onClick={() => {
+                              if (isBalanceUnit) {
+                                navigate('/product-details', { state: { product: row } });
+                              }
+                            }}
+                            title={typeof displayValue === 'string' ? displayValue : String(displayValue)}
+                          >
+                            {displayValue}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
+          {tabIndex === 0 && (
+            <Box
+              className="marketplace-chart-panel"
+              sx={{ width: 'auto' }}
+            >
+              <Box className="marketplace-chart-panel-header">
+                В корзину
+              </Box>
+              <Box className="marketplace-chart-panel-filter" />
+              {paginatedData.map((row) => {
+                const inChart = getQuantity(row.id) !== null;
+                const chartQty = getQuantity(row.id);
+                return (
+                  <Box key={row.id} className="marketplace-chart-panel-row">
+                    {!inChart ? (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<AddShoppingCartIcon />}
+                        onClick={() => addToChart(row)}
+                        sx={{
+                          borderColor: '#FED208',
+                          color: '#FED208',
+                          '&:hover': { borderColor: '#FED208', backgroundColor: 'rgba(254,210,8,0.08)' },
+                        }}
+                      >
+                      </Button>
+                    ) : (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          value={chartQty ?? ''}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            if (!isNaN(v)) updateQuantity(row.id, v);
+                          }}
+                          inputProps={{ min: 0, step: 0.001 }}
+                          sx={{
+                            width: 110,
+                            '& .MuiOutlinedInput-root': {
+                              color: '#fff',
+                              '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                            },
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => removeFromChart(row.id)}
+                          sx={{ color: '#FED208' }}
+                          aria-label="удалить"
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+          </Box>
         </TableContainer>
       </Container>
     </Box>

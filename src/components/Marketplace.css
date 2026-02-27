@@ -91,9 +91,9 @@
   align-items: center;
 }
 
-/* Form Controls */
+Form Controls
 .marketplace-form-control {
-  min-width: 200px !important;
+  width: auto !important;
 }
 
 .marketplace-form-control .MuiOutlinedInput-root {
@@ -516,6 +516,77 @@
 
 .marketplace-table-empty-cell.MuiTableCell-root {
   color: #aaa !important;
+}
+
+/* Chart panel (sticky column outside table) */
+.marketplace-chart-panel {
+  position: sticky !important;
+  right: 0 !important;
+  flex-shrink: 0;
+  background-color: #1a1a1a !important;
+  border-left: 2px solid #FED208;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.4);
+}
+
+.marketplace-chart-panel-header {
+  padding: 12px 8px;
+  color: #FED208 !important;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(254, 210, 8, 0.3);
+  height: 48px;
+  min-height: 57px;
+  max-height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.marketplace-chart-panel-filter {
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  height: 156px;
+  min-height: 56px;
+  max-height: 73px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.marketplace-chart-panel-row {
+  padding: 12px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  height: 48px;
+  min-height: 56px;
+  max-height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Align table header/filter rows with chart panel */
+.marketplace-table-container .MuiTableHead .MuiTableRow:first-of-type .MuiTableCell-root {
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  box-sizing: border-box;
+}
+
+.marketplace-table-container .MuiTableHead .MuiTableRow:last-of-type .MuiTableCell-root {
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+  box-sizing: border-box;
+}
+
+.marketplace-table-container .MuiTableBody .MuiTableRow .MuiTableCell-root {
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  box-sizing: border-box;
 }
 
 /* Loading and Error States */

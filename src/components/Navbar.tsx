@@ -11,6 +11,7 @@ import {
   ListItem,
   ListItemText,
   IconButton,
+  Badge,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -22,13 +23,16 @@ import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import logo from "../assets/Rosneft_logo.svg";
+import { useChart } from "../contexts/ChartContext";
 import "./Navbar.css";
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
+  const { items: chartItems } = useChart();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -65,6 +69,10 @@ const Navbar: React.FC = () => {
   const handleChatClick = () => {
     // TODO: Add chat functionality
     console.log("Chat clicked");
+  };
+
+  const handleChartClick = () => {
+    navigate("/cart");
   };
 
   const handleProfileClick = () => {
@@ -105,6 +113,15 @@ const Navbar: React.FC = () => {
                 aria-label="chat"
               >
                 <ChatBubbleOutlineIcon className="navbar-icon" />
+              </IconButton>
+              <IconButton
+                className="navbar-icon-button"
+                onClick={handleChartClick}
+                aria-label="корзина"
+              >
+                <Badge badgeContent={chartItems.length} color="warning">
+                  <ShoppingCartIcon className="navbar-icon" />
+                </Badge>
               </IconButton>
               <IconButton
                 className="navbar-icon-button"

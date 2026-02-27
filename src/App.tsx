@@ -2,11 +2,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './features/auth/components/Login';
 import Marketplace from './components/Marketplace';
 import ProductDetails from './components/ProductDetails';
+import Cart from './components/Cart';
 import AdminPanel from './components/AdminPanel';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import AuthInitializer from './components/AuthInitializer';
+import { ChartProvider } from './contexts/ChartContext';
 import { useAppSelector } from './store/store';
 import { Box } from '@mui/material';
 
@@ -25,8 +27,9 @@ function App() {
         v7_relativeSplatPath: true,
       }}
     >
-      <AuthInitializer />
-      <Box sx={{ display: 'flex', flexDirection: 'column', width:'90%', minHeight: '100vh' }}>
+      <ChartProvider>
+        <AuthInitializer />
+        <Box sx={{ display: 'flex', flexDirection: 'column', width:'90%', minHeight: '100vh' }}>
         {isAuthenticated && <Navbar />}
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', color: '#FED208' }}>
@@ -59,6 +62,14 @@ function App() {
               }
             />
             <Route
+              path="/cart"
+              element={
+                <ProtectedRoute>
+                  <Cart />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin"
               element={
                 <AdminRoute>
@@ -68,7 +79,8 @@ function App() {
             />
           </Routes>
         )}
-      </Box>
+        </Box>
+      </ChartProvider>
     </Router>
   );
 }

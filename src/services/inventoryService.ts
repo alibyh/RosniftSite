@@ -1,3 +1,4 @@
+import Papa from 'papaparse';
 import { supabase } from './supabaseClient';
 
 // Database row interface matching Supabase table structure
@@ -16,11 +17,11 @@ export interface InventoryRow {
   'БЕИ (единица измерения)': string | null;
   Количество: string | null;
   'Стоимость запасов': string | null;
-  'Плановая рентабельность': number | null;
+  'Рентабельность': number | null;
   'Цена запаса': string | null;
 }
 
-// Mapped interface for UI (Цена запаса and Плановая рентабельность are hidden, not exposed)
+// Mapped interface for UI (Цена запаса hidden; profitability shown only in Мои запасы)
 export interface MappedInventoryRow {
   id: string;
   balanceUnit: string;
@@ -36,6 +37,8 @@ export interface MappedInventoryRow {
   unit: string;
   quantity: string;
   cost: string;
+  /** Плановая рентабельность - shown and editable in Мои запасы tab */
+  profitability: string;
 }
 
 const mapInventoryRow = (row: InventoryRow): MappedInventoryRow => {
@@ -54,6 +57,7 @@ const mapInventoryRow = (row: InventoryRow): MappedInventoryRow => {
     unit: row['БЕИ (единица измерения)'] || '',
     quantity: row.Количество ?? '',
     cost: row['Стоимость запасов'] ?? '',
+    profitability: row['Рентабельность'] != null ? String(row['Рентабельность']) : '',
   };
 };
 
@@ -122,6 +126,10 @@ export const inventoryService = {
       if (updates.unit !== undefined) dbUpdates['БЕИ (единица измерения)'] = updates.unit;
       if (updates.quantity !== undefined) dbUpdates.Количество = updates.quantity;
       if (updates.cost !== undefined) dbUpdates['Стоимость запасов'] = updates.cost;
+      if (updates.profitability !== undefined) {
+        const v = parseFloat(String(updates.profitability).replace(/\s/g, ''));
+        dbUpdates['Рентабельность'] = isNaN(v) ? null : v;
+      }
 
       const { data, error } = await supabase
         .from('inventory')
@@ -143,6 +151,20 @@ export const inventoryService = {
     } catch (error) {
       console.error('Error in updateInventory:', error);
       throw error;
+    }
+  },
+
+  /** Update Рентабельность for all rows of a given БЕ */
+  async updateProfitabilityForBalanceUnit(balanceUnit: string, value: string): Promise<void> {
+    const v = parseFloat(String(value).replace(/\s/g, ''));
+    const numVal = isNaN(v) ? null : v;
+    const { error } = await supabase
+      .from('inventory')
+      .update({ Рентабельность: numVal })
+      .eq('БЕ', balanceUnit);
+    if (error) {
+      console.error('Error updating profitability:', error);
+      throw new Error(`Ошибка обновления рентабельности: ${error.message}`);
     }
   },
 
@@ -179,7 +201,7 @@ export const inventoryService = {
         'БЕИ (единица измерения)': item.unit || null,
         Количество: item.quantity || null,
         'Стоимость запасов': item.cost || null,
-        'Плановая рентабельность': null,
+        'Рентабельность': item.profitability ? parseFloat(String(item.profitability).replace(/\s/g, '')) || null : null,
         'Цена запаса': null,
       };
 
@@ -203,5 +225,90 @@ export const inventoryService = {
       console.error('Error in createInventory:', error);
       throw error;
     }
+  },
+
+  /**
+   * Update inventory from CSV file: delete existing rows for the given БЕ, then insert new rows.
+   * CSV must have columns matching the inventory table (БЕ, Наименование дочернего Общества, etc.).
+   */
+  async updateInventoryFromFile(
+    companyId: string,
+    csvText: string
+  ): Promise<{ deleted: number; inserted: number }> {
+    const parsed = Papa.parse<Record<string, string>>(csvText.replace(/^\uFEFF/, ''), {
+      header: true,
+      skipEmptyLines: true,
+    });
+
+    if (!parsed.data?.length) {
+      throw new Error('Файл пуст или не содержит данных');
+    }
+
+    const header = parsed.meta.fields || [];
+    const getCol = (row: Record<string, string>, names: string[]) => {
+      for (const n of names) {
+        const key = header.find((h) => h.trim().toLowerCase().replace(/'/g, '') === n.trim().toLowerCase().replace(/'/g, ''));
+        if (key && row[key] != null) return String(row[key]).trim();
+      }
+      return '';
+    };
+
+    const rows = parsed.data.map((row) => {
+      const clsMtr = getCol(row, ['Классы МТР', 'Классы МТР ']);
+      const ksm = getCol(row, ['КСМ (код материала)']);
+      const quantity = getCol(row, ['Количество']);
+      const cost = getCol(row, ['Стоимость запасов', 'Стоимость запасов , руб (показывается во вкладке "Складские запасы")']);
+      const rent = getCol(row, ['Рентабельность', 'Плановая рентабельность', 'Плановая рентабельность ', 'Рентабельность (на сайте НЕ показывать)']);
+      const price = getCol(row, ['Цена запаса', 'Цена запаса, руб (показывается во вкладке "Мои запасы")']);
+
+      return {
+        БЕ: companyId,
+        'Наименование дочернего Общества': getCol(row, ['Наименование дочернего Общества', "Наименование дочернего Общества'"]) || null,
+        'Дата поступления': getCol(row, ['Дата поступления']) || null,
+        'Адрес склада': getCol(row, ['Адрес склада']) || null,
+        'Классы МТР': clsMtr ? parseInt(clsMtr, 10) || null : null,
+        'Наименование класса': getCol(row, ['Наименование класса', "Наименование класса '"]) || null,
+        'Подклассы МТР': getCol(row, ['Подклассы МТР', 'Подклассы МТР ']) || null,
+        'Наименование подкласса': getCol(row, ['Наименование подкласса']) || null,
+        'КСМ (код материала)': ksm ? parseInt(ksm, 10) || null : null,
+        'Наименование материала': getCol(row, ['Наименование материала']) || null,
+        'БЕИ (единица измерения)': getCol(row, ['БЕИ (единица измерения)']) || null,
+        Количество: quantity || null,
+        'Стоимость запасов': cost || null,
+        'Рентабельность': rent ? parseFloat(rent.replace(/\s/g, '')) || null : null,
+        'Цена запаса': price || null,
+      };
+    });
+
+    const { data: deletedRows, error: deleteError } = await supabase
+      .from('inventory')
+      .delete()
+      .eq('БЕ', companyId)
+      .select('id');
+
+    if (deleteError) {
+      console.error('Error deleting inventory:', deleteError);
+      throw new Error(`Ошибка удаления данных: ${deleteError.message}`);
+    }
+
+    const deletedCount = deletedRows?.length ?? 0;
+
+    if (rows.length === 0) {
+      return { deleted: deletedCount, inserted: 0 };
+    }
+
+    const BATCH_SIZE = 500;
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      const { error: insertError } = await supabase.from('inventory').insert(batch);
+      if (insertError) {
+        console.error('Error inserting inventory:', insertError);
+        throw new Error(`Ошибка загрузки данных: ${insertError.message}`);
+      }
+      inserted += batch.length;
+    }
+
+    return { deleted: deletedCount, inserted };
   },
 };
