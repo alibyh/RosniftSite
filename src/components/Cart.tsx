@@ -253,9 +253,9 @@ const Cart: React.FC = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наименование дочернего общества</TableCell>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Код материала</TableCell>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наименование материала</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наим. доч. общества</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Код</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наим. материала</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>ЕИ</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Количество</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Сумма</TableCell>

@@ -8,7 +8,8 @@ import react from '@vitejs/plugin-react'
 // Example: if repo is "alibyh/RosniftSite", use '/RosniftSite/'
 // If it's a user site (alibyh.github.io), use '/'
 export default defineConfig({
-  base: '/RosniftSite/', // GitHub Pages base path
+  // Vercel serves from root (/), GitHub Pages uses repository subpath.
+  base: process.env.VERCEL ? '/' : '/RosniftSite/',
   plugins: [react()],
   server: {
     port: 3000,
