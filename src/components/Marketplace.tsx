@@ -21,6 +21,10 @@ import {
   Autocomplete,
   Button,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
@@ -84,6 +88,17 @@ const Marketplace: React.FC = () => {
   const [tabIndex, setTabIndex] = useState(0); // 0 = Складские запасы, 1 = Мои запасы
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<{
+    rows: Record<string, string | number | null>[];
+    columns: string[];
+    hasProfitColumn: boolean;
+    profitValues: string[];
+    allSameProfit: boolean;
+    be: string;
+    companyName: string;
+    csvText: string;
+  } | null>(null);
+  const [userSpecifiedProfitability, setUserSpecifiedProfitability] = useState('');
   const tableRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToChart, updateQuantity, removeFromChart, getQuantity } = useChart();
@@ -310,7 +325,7 @@ const Marketplace: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.companyId) return;
     e.target.value = '';
@@ -318,11 +333,45 @@ const Marketplace: React.FC = () => {
     setUploading(true);
     try {
       const text = await file.text();
-      const result = await inventoryService.updateInventoryFromFile(user.companyId, text);
+      const parsed = inventoryService.parseCsvForPreview(text);
+      if (parsed.rows.length === 0) {
+        setUploadMessage({ type: 'error', text: 'Файл пуст или не содержит данных' });
+        return;
+      }
+      setUploadPreview({
+        ...parsed,
+        csvText: text,
+      });
+      setUserSpecifiedProfitability('');
+    } catch (err) {
+      setUploadMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Ошибка при чтении файла',
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!uploadPreview || !user?.companyId) return;
+    const { hasProfitColumn, profitValues, allSameProfit, csvText } = uploadPreview;
+    if (!hasProfitColumn && !userSpecifiedProfitability.trim()) {
+      setUploadMessage({ type: 'error', text: 'Укажите рентабельность (%)' });
+      return;
+    }
+    setUploading(true);
+    setUploadMessage(null);
+    try {
+      const result = await inventoryService.updateInventoryFromFile(user.companyId, csvText, {
+        defaultProfitability: hasProfitColumn ? undefined : userSpecifiedProfitability.trim() || undefined,
+      });
       setUploadMessage({
         type: 'success',
         text: `Обновлено: удалено ${result.deleted} записей, добавлено ${result.inserted} записей`,
       });
+      setUploadPreview(null);
+      setUserSpecifiedProfitability('');
       await loadData();
       setTimeout(() => setUploadMessage(null), 5000);
     } catch (err) {
@@ -333,6 +382,11 @@ const Marketplace: React.FC = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleCancelPreview = () => {
+    setUploadPreview(null);
+    setUserSpecifiedProfitability('');
   };
 
   if (loading) {
@@ -389,6 +443,145 @@ const Marketplace: React.FC = () => {
             {uploadMessage.text}
           </Alert>
         )}
+
+        <Dialog
+          open={!!uploadPreview}
+          onClose={handleCancelPreview}
+          maxWidth='xl'
+          fullWidth
+          PaperProps={{
+            sx: {
+              backgroundColor: 'rgba(30,30,30,0.98)',
+              border: '1px solid rgba(254,210,8,0.3)',
+            },
+          }}
+        >
+          {uploadPreview && (
+            <>
+              <DialogTitle sx={{ color: '#FED208', borderBottom: '1px solid rgba(254,210,8,0.3)' }}>
+                Проверка данных перед загрузкой
+              </DialogTitle>
+              <DialogContent sx={{ pt: 2 }}>
+                <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1 }}>
+                    БЕ и Наименование дочернего Общества
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>БЕ</Typography>
+                      <Typography sx={{ color: '#fff', fontWeight: 500 }}>{uploadPreview.be || '-'}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                        Наименование дочернего Общества
+                      </Typography>
+                      <Typography sx={{ color: '#fff', fontWeight: 500 }} noWrap title={uploadPreview.companyName}>
+                        {uploadPreview.companyName || '-'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1 }}>
+                    Рентабельность
+                  </Typography>
+                  {uploadPreview.hasProfitColumn ? (
+                    <Box sx={{ p: 2, bgcolor: 'rgba(76,175,80,0.15)', borderRadius: 1 }}>
+                      {uploadPreview.allSameProfit ? (
+                        <Typography sx={{ color: '#fff' }}>
+                          <strong>{uploadPreview.profitValues[0] || '-'}%</strong>
+                        </Typography>
+                      ) : (
+                        <Typography sx={{ color: '#ff9800' }}>
+                          Внимание: разные значения в строках ({uploadPreview.profitValues.join(', ')}).
+                          Будет использовано первое значение: {uploadPreview.profitValues[0]}%
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : (
+                    <Box sx={{ p: 2, bgcolor: 'rgba(255,152,0,0.15)', borderRadius: 1 }}>
+                      <Typography sx={{ color: '#fff', mb: 1 }}>
+                        Столбец рентабельности не найден. Укажите значение для всех строк:
+                      </Typography>
+                      <TextField
+                        size="small"
+                        placeholder="Например: 5.1"
+                        value={userSpecifiedProfitability}
+                        onChange={(e) => setUserSpecifiedProfitability(e.target.value)}
+                        inputProps={{ type: 'number', step: 0.1 }}
+                        sx={{
+                          width: 120,
+                          '& .MuiOutlinedInput-root': {
+                            color: '#fff',
+                            '& fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
+                          },
+                        }}
+                      />
+                      <Typography component="span" sx={{ ml: 1, color: 'rgba(255,255,255,0.7)' }}>
+                        %
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+
+                <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1 }}>
+                  Предпросмотр данных ({uploadPreview.rows.length} записей)
+                </Typography>
+                <TableContainer component={Paper} sx={{ maxHeight: 400, overflow: 'auto', mb: 2 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        {uploadPreview.columns.map((col) => (
+                          <TableCell key={col} sx={{ color: '#FED208', fontWeight: 700, bgcolor: 'rgba(42,42,42,0.99)' }}>
+                            {col}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {uploadPreview.rows.slice(0, 50).map((row, idx) => (
+                        <TableRow key={idx}>
+                          {uploadPreview.columns.map((col) => (
+                            <TableCell key={col} sx={{ color: 'black' }}>
+                              {(col === 'Количество' || col === 'Стоимость запасов')
+                                ? formatNumber(row[col] ?? '')
+                                : String(row[col] ?? '-')}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                {uploadPreview.rows.length > 50 && (
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Показаны первые 50 из {uploadPreview.rows.length} записей
+                  </Typography>
+                )}
+              </DialogContent>
+              <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(254,210,8,0.2)' }}>
+                <Button onClick={handleCancelPreview} sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                  Отмена
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleConfirmUpload}
+                  disabled={
+                    (!uploadPreview.hasProfitColumn && !userSpecifiedProfitability.trim()) || uploading
+                  }
+                  sx={{
+                    backgroundColor: '#FED208',
+                    color: 'black !important',
+                    '&:hover': { backgroundColor: '#F6D106', color:'red !important' },
+                  }}
+                >
+                  {uploading ? 'Загрузка...' : 'Подтвердить загрузку'}
+                </Button>
+              </DialogActions>
+            </>
+          )}
+        </Dialog>
 
         {tabIndex === 1 && user?.companyId && dataForTab.length > 0 && (
           <Paper
@@ -460,7 +653,7 @@ const Marketplace: React.FC = () => {
                   type="file"
                   accept=".csv"
                   style={{ display: 'none' }}
-                  onChange={handleFileUpload}
+                  onChange={handleFileSelect}
                 />
                 <Button
                   variant="outlined"

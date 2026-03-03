@@ -228,12 +228,121 @@ export const inventoryService = {
   },
 
   /**
+   * Parse CSV for preview (no DB writes). Returns rows, profit column status, BE and company name.
+   */
+  parseCsvForPreview(csvText: string): {
+    rows: Record<string, string | number | null>[];
+    columns: string[];
+    hasProfitColumn: boolean;
+    profitValues: string[];
+    allSameProfit: boolean;
+    be: string;
+    companyName: string;
+  } {
+    const parsed = Papa.parse<Record<string, string>>(csvText.replace(/^\uFEFF/, ''), {
+      header: true,
+      skipEmptyLines: true,
+    });
+    const header = parsed.meta.fields || [];
+
+    const getCol = (row: Record<string, string>, names: string[]) => {
+      for (const n of names) {
+        const nNorm = n.trim().toLowerCase().replace(/'/g, '');
+        const key = header.find((h) => {
+          const hNorm = (h || '').trim().toLowerCase().replace(/'/g, '');
+          return hNorm === nNorm || hNorm.startsWith(nNorm) || nNorm.startsWith(hNorm);
+        });
+        if (key && row[key] != null) return String(row[key]).trim();
+      }
+      return '';
+    };
+
+    const profitCol = header.find((h) => {
+      const k = (h || '').trim().toLowerCase().replace(/'/g, '');
+      return k.includes('рентабельность');
+    });
+
+    const hasProfitColumn = !!profitCol;
+    const profitValues: string[] = [];
+    if (hasProfitColumn) {
+      parsed.data.forEach((row) => {
+        const v = (row[profitCol!] || '').trim();
+        if (v && !profitValues.includes(v)) profitValues.push(v);
+      });
+    }
+    const allSameProfit = profitValues.length <= 1;
+
+    const displayCols = [
+      'БЕ',
+      'Наименование дочернего Общества',
+      'Дата поступления',
+      'Адрес склада',
+      'Классы МТР',
+      'Наименование класса',
+      'Подклассы МТР',
+      'Наименование подкласса',
+      'КСМ (код материала)',
+      'Наименование материала',
+      'БЕИ (единица измерения)',
+      'Количество',
+      'Стоимость запасов',
+    ];
+    const colMap: Record<string, string[]> = {
+      БЕ: ['БЕ', 'БЕ (балансовая единица) держателя запаса'],
+      'Наименование дочернего Общества': ['Наименование дочернего Общества', "Наименование дочернего Общества'"],
+      'Дата поступления': ['Дата поступления'],
+      'Адрес склада': ['Адрес склада'],
+      'Классы МТР': ['Классы МТР', 'Классы МТР '],
+      'Наименование класса': ['Наименование класса', "Наименование класса '"],
+      'Подклассы МТР': ['Подклассы МТР', 'Подклассы МТР '],
+      'Наименование подкласса': ['Наименование подкласса'],
+      'КСМ (код материала)': ['КСМ (код материала)'],
+      'Наименование материала': ['Наименование материала'],
+      'БЕИ (единица измерения)': ['БЕИ (единица измерения)'],
+      Количество: ['Количество'],
+      'Стоимость запасов': ['Стоимость запасов', 'Стоимость запасов , руб (за весь объем в столбце "количество")'],
+    };
+
+    const rows = parsed.data
+      .filter((r) => Object.values(r).some((v) => v != null && String(v).trim() !== ''))
+      .map((row) => {
+        const obj: Record<string, string | number | null> = {};
+        displayCols.forEach((col) => {
+          const val = getCol(row, colMap[col] || [col]);
+          if (col === 'Классы МТР' || col === 'КСМ (код материала)') {
+            obj[col] = val ? parseInt(val, 10) || null : null;
+          } else {
+            obj[col] = val || null;
+          }
+        });
+        return obj;
+      });
+
+    const firstRow = parsed.data[0];
+    const be = firstRow ? getCol(firstRow, ['БЕ', 'БЕ (балансовая единица) держателя запаса']) || '' : '';
+    const companyName =
+      firstRow ? getCol(firstRow, ['Наименование дочернего Общества', "Наименование дочернего Общества'"]) || '' : '';
+
+    return {
+      rows,
+      columns: displayCols,
+      hasProfitColumn,
+      profitValues,
+      allSameProfit,
+      be,
+      companyName,
+    };
+  },
+
+  /**
    * Update inventory from CSV file: delete existing rows for the given БЕ, then insert new rows.
    * CSV must have columns matching the inventory table (БЕ, Наименование дочернего Общества, etc.).
+   * If profit column is missing, defaultProfitability is used for all rows.
    */
   async updateInventoryFromFile(
     companyId: string,
-    csvText: string
+    csvText: string,
+    options?: { defaultProfitability?: string }
   ): Promise<{ deleted: number; inserted: number }> {
     const parsed = Papa.parse<Record<string, string>>(csvText.replace(/^\uFEFF/, ''), {
       header: true,
@@ -258,7 +367,8 @@ export const inventoryService = {
       const ksm = getCol(row, ['КСМ (код материала)']);
       const quantity = getCol(row, ['Количество']);
       const cost = getCol(row, ['Стоимость запасов', 'Стоимость запасов , руб (показывается во вкладке "Складские запасы")']);
-      const rent = getCol(row, ['Рентабельность', 'Плановая рентабельность', 'Плановая рентабельность ', 'Рентабельность (на сайте НЕ показывать)']);
+      const rentRaw = getCol(row, ['Рентабельность', 'Плановая рентабельность', 'Плановая рентабельность ', 'Рентабельность (на сайте НЕ показывать)']);
+      const rent = rentRaw || (options?.defaultProfitability ?? '');
       const price = getCol(row, ['Цена запаса', 'Цена запаса, руб (показывается во вкладке "Мои запасы")']);
 
       return {
@@ -275,7 +385,7 @@ export const inventoryService = {
         'БЕИ (единица измерения)': getCol(row, ['БЕИ (единица измерения)']) || null,
         Количество: quantity || null,
         'Стоимость запасов': cost || null,
-        'Рентабельность': rent ? parseFloat(rent.replace(/\s/g, '')) || null : null,
+        'Рентабельность': rent ? (parseFloat(rent.replace(/\s/g, '').replace(',', '.')) || null) : null,
         'Цена запаса': price || null,
       };
     });
