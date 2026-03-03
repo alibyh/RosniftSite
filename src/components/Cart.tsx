@@ -29,13 +29,13 @@ import { useChart } from '../contexts/ChartContext';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { geocodeAddress, getRouteWithWaypoints } from '../services/mapboxService';
+import { parseDecimalStr, sanitizeQuantityInput } from '../utils/numberUtils';
 import './ProductDetails.css';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
 const parsePrice = (str: string): number => {
-  const cleaned = String(str || '').replace(/\s/g, '').replace(',', '.');
-  return parseFloat(cleaned) || 0;
+  return parseDecimalStr(str) || 0;
 };
 
 const Cart: React.FC = () => {
@@ -59,6 +59,7 @@ const Cart: React.FC = () => {
 
   const [selectedDestination, setSelectedDestination] = useState<string>('');
   const destinationAddress = selectedDestination?.trim() || null;
+  const [qtyEditing, setQtyEditing] = useState<{ id: string; value: string } | null>(null);
 
   useEffect(() => {
     if (userWarehouseAddresses.length > 0 && !selectedDestination) {
@@ -82,7 +83,7 @@ const Cart: React.FC = () => {
 
   const totalPrice = useMemo(() => {
     return items.reduce((sum, item) => {
-      const rowQty = parseFloat(String(item.row.quantity || '1').replace(/\s/g, '')) || 1;
+      const rowQty = parseDecimalStr(String(item.row.quantity || '1')) || 1;
       const cost = parsePrice(item.row.cost || '0');
       const pricePerUnit = rowQty > 0 ? cost / rowQty : cost;
       return sum + pricePerUnit * item.quantity;
@@ -241,7 +242,7 @@ const Cart: React.FC = () => {
           Корзина
         </Typography>
 
-        <Box className="product-details-content-box">
+        <Box className="product-details-content-box cart-page">
           <Box className="product-details-left-box">
             <Paper className="product-details-paper">
               <Typography variant="h5" className="product-details-section-title">
@@ -252,39 +253,54 @@ const Cart: React.FC = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наименование подкласса</TableCell>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Ед. измерения</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наименование дочернего общества</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Код материала</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наименование материала</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>ЕИ</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Количество</TableCell>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Цена, руб</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Сумма</TableCell>
                       <TableCell align="right" sx={{ color: '#FED208', fontWeight: 700 }} />
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {items.map((item) => {
-                      const rowQty = parseFloat(String(item.row.quantity || '1').replace(/\s/g, '')) || 1;
+                      const rowQty = parseDecimalStr(String(item.row.quantity || '1')) || 1;
                       const cost = parsePrice(item.row.cost || '0');
                       const pricePerUnit = rowQty > 0 ? cost / rowQty : cost;
                       const itemTotal = pricePerUnit * item.quantity;
+                      const maxQty = rowQty;
+                      const displayQty = qtyEditing?.id === item.id ? qtyEditing.value : String(item.quantity);
                       return (
                         <TableRow key={item.id}>
-                          <TableCell sx={{ color: '#fff' }}>{item.row.subclassName || item.row.materialName || '-'}</TableCell>
+                          <TableCell sx={{ color: '#fff' }}>{item.row.companyName || '-'}</TableCell>
+                          <TableCell sx={{ color: '#fff' }}>{item.row.materialCode || '-'}</TableCell>
+                          <TableCell sx={{ color: '#fff' }}>{item.row.materialName || '-'}</TableCell>
                           <TableCell sx={{ color: '#fff' }}>{item.row.unit || '-'}</TableCell>
                           <TableCell sx={{ color: '#fff' }}>
                             <TextField
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               size="small"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                const v = parseFloat(e.target.value);
-                                if (!isNaN(v) && v >= 0) updateQuantity(item.id, v);
+                              value={displayQty}
+                              onChange={(e) =>
+                                setQtyEditing({ id: item.id, value: sanitizeQuantityInput(e.target.value) })
+                              }
+                              onBlur={() => {
+                                const raw = qtyEditing?.id === item.id ? qtyEditing.value : String(item.quantity);
+                                const parsed = parseDecimalStr(raw);
+                                const valid = !isNaN(parsed) && parsed > 0;
+                                const clamped = valid ? Math.min(parsed, maxQty) : Math.min(1, maxQty);
+                                updateQuantity(item.id, clamped);
+                                setQtyEditing(null);
                               }}
+                              onFocus={() => setQtyEditing({ id: item.id, value: String(item.quantity) })}
                               inputProps={{ min: 0, step: 0.001 }}
                               sx={{ width: 90, '& .MuiOutlinedInput-root': { color: '#fff' } }}
                             />
                           </TableCell>
                           <TableCell sx={{ color: '#fff' }}>{itemTotal.toFixed(2)}</TableCell>
                           <TableCell align="right">
-                            <IconButton size="small" onClick={() => removeFromChart(item.id)} sx={{ color: '#FED208' }}>
+                            <IconButton size="small" onClick={() => removeFromChart(item.id)} sx={{ color: '#FED208' }} title="Удалить">
                               <DeleteOutlineIcon />
                             </IconButton>
                           </TableCell>

@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { supabase } from './supabaseClient';
+import { parseDecimalStr } from '../utils/numberUtils';
 
 // Database row interface matching Supabase table structure
 export interface InventoryRow {
@@ -127,7 +128,7 @@ export const inventoryService = {
       if (updates.quantity !== undefined) dbUpdates.Количество = updates.quantity;
       if (updates.cost !== undefined) dbUpdates['Стоимость запасов'] = updates.cost;
       if (updates.profitability !== undefined) {
-        const v = parseFloat(String(updates.profitability).replace(/\s/g, ''));
+        const v = parseDecimalStr(String(updates.profitability));
         dbUpdates['Рентабельность'] = isNaN(v) ? null : v;
       }
 
@@ -156,7 +157,7 @@ export const inventoryService = {
 
   /** Update Рентабельность for all rows of a given БЕ */
   async updateProfitabilityForBalanceUnit(balanceUnit: string, value: string): Promise<void> {
-    const v = parseFloat(String(value).replace(/\s/g, ''));
+    const v = parseDecimalStr(String(value));
     const numVal = isNaN(v) ? null : v;
     const { error } = await supabase
       .from('inventory')
@@ -201,7 +202,7 @@ export const inventoryService = {
         'БЕИ (единица измерения)': item.unit || null,
         Количество: item.quantity || null,
         'Стоимость запасов': item.cost || null,
-        'Рентабельность': item.profitability ? parseFloat(String(item.profitability).replace(/\s/g, '')) || null : null,
+        'Рентабельность': item.profitability ? (parseDecimalStr(String(item.profitability)) || null) : null,
         'Цена запаса': null,
       };
 
@@ -385,7 +386,7 @@ export const inventoryService = {
         'БЕИ (единица измерения)': getCol(row, ['БЕИ (единица измерения)']) || null,
         Количество: quantity || null,
         'Стоимость запасов': cost || null,
-        'Рентабельность': rent ? (parseFloat(rent.replace(/\s/g, '').replace(',', '.')) || null) : null,
+        'Рентабельность': rent ? (parseDecimalStr(rent) || null) : null,
         'Цена запаса': price || null,
       };
     });

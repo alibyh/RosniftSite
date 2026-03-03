@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { MappedInventoryRow } from '../services/inventoryService';
+import { parseDecimalStr } from '../utils/numberUtils';
 
 export interface ChartItem {
   id: string;
@@ -21,7 +22,7 @@ export function ChartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ChartItem[]>([]);
 
   const addToChart = useCallback((row: MappedInventoryRow, quantity?: number) => {
-    const maxQty = parseFloat(String(row.quantity || '0').replace(/\s/g, '')) || 1;
+    const maxQty = parseDecimalStr(String(row.quantity || '0')) || 1;
     const qty = quantity ?? maxQty;
     setItems((prev) => {
       const exists = prev.find((i) => i.id === row.id);

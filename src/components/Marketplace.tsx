@@ -33,6 +33,7 @@ import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
 import { useChart } from '../contexts/ChartContext';
+import { parseDecimalStr, sanitizeQuantityInput } from '../utils/numberUtils';
 import './Marketplace.css';
 
 interface ColumnWidths {
@@ -48,8 +49,7 @@ type ColumnFilters = {
 function formatNumber(value: string | number): string {
   const str = String(value ?? '').trim();
   if (!str || str === '-') return str;
-  const cleaned = str.replace(/\s/g, '').replace(',', '.');
-  const num = parseFloat(cleaned);
+  const num = parseDecimalStr(str);
   if (isNaN(num)) return str;
   const parts = num.toString().split('.');
   const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -99,6 +99,7 @@ const Marketplace: React.FC = () => {
     csvText: string;
   } | null>(null);
   const [userSpecifiedProfitability, setUserSpecifiedProfitability] = useState('');
+  const [chartQtyEditing, setChartQtyEditing] = useState<{ id: string; value: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToChart, updateQuantity, removeFromChart, getQuantity } = useChart();
@@ -179,9 +180,8 @@ const Marketplace: React.FC = () => {
       });
       
       return Array.from(uniqueValues).sort((a, b) => {
-        // Sort numbers numerically if possible
-        const aNum = parseFloat(a.replace(/\s/g, ''));
-        const bNum = parseFloat(b.replace(/\s/g, ''));
+        const aNum = parseDecimalStr(a);
+        const bNum = parseDecimalStr(b);
         if (!isNaN(aNum) && !isNaN(bNum)) {
           return aNum - bNum;
         }
@@ -212,8 +212,8 @@ const Marketplace: React.FC = () => {
 
         // Handle numeric values (quantity, cost)
         if (sortColumn === 'quantity' || sortColumn === 'cost') {
-          const aNum = parseFloat(aValue?.replace(/\s/g, '') || '0');
-          const bNum = parseFloat(bValue?.replace(/\s/g, '') || '0');
+          const aNum = parseDecimalStr(aValue ?? '') || 0;
+          const bNum = parseDecimalStr(bValue ?? '') || 0;
           return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
         }
 
@@ -355,7 +355,7 @@ const Marketplace: React.FC = () => {
 
   const handleConfirmUpload = async () => {
     if (!uploadPreview || !user?.companyId) return;
-    const { hasProfitColumn, profitValues, allSameProfit, csvText } = uploadPreview;
+    const { hasProfitColumn, csvText } = uploadPreview;
     if (!hasProfitColumn && !userSpecifiedProfitability.trim()) {
       setUploadMessage({ type: 'error', text: 'Укажите рентабельность (%)' });
       return;
@@ -877,13 +877,25 @@ const Marketplace: React.FC = () => {
                     ) : (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <TextField
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           size="small"
-                          value={chartQty ?? ''}
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value);
-                            if (!isNaN(v)) updateQuantity(row.id, v);
+                          value={chartQtyEditing?.id === row.id ? chartQtyEditing.value : String(chartQty ?? '')}
+                          onChange={(e) =>
+                            setChartQtyEditing({ id: row.id, value: sanitizeQuantityInput(e.target.value) })
+                          }
+                          onBlur={() => {
+                            const raw = chartQtyEditing?.id === row.id ? chartQtyEditing.value : String(chartQty ?? '');
+                            const parsed = parseDecimalStr(raw);
+                            const maxQty = parseDecimalStr(String(row.quantity || '0')) || 0;
+                            const valid = !isNaN(parsed) && parsed > 0;
+                            const clamped = valid
+                              ? Math.min(parsed, maxQty)
+                              : Math.min(1, maxQty);
+                            updateQuantity(row.id, clamped);
+                            setChartQtyEditing(null);
                           }}
+                          onFocus={() => setChartQtyEditing({ id: row.id, value: String(chartQty ?? '') })}
                           inputProps={{ min: 0, step: 0.001 }}
                           sx={{
                             width: 110,

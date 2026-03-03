@@ -133,8 +133,18 @@
   align-items: stretch;
 }
 
+/* Cart page: narrower right panel (Итого) */
+.cart-page .product-details-right-box {
+  flex: 0 0 280px;
+  max-width: 320px;
+}
+
 @media (max-width: 900px) {
   .product-details-right-box {
+    flex: 1 1 100%;
+  }
+  .cart-page .product-details-right-box {
+    max-width: none;
     flex: 1 1 100%;
   }
 }
