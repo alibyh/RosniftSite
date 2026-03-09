@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../store/store';
 import {
   Box,
@@ -59,7 +58,6 @@ function formatNumber(value: string | number): string {
 }
 
 const Marketplace: React.FC = () => {
-  const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
   const [data, setData] = useState<MappedInventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
