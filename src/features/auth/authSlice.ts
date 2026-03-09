@@ -24,7 +24,7 @@ const initialState: AuthState = {
   user: null,
   token: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true, // true until AuthInitializer restores session (fixes new-tab opening cart/product)
   error: null,
 };
 

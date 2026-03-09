@@ -32,6 +32,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
+import { authService } from '../services/authService';
 import { useChart } from '../contexts/ChartContext';
 import { parseDecimalStr, sanitizeQuantityInput } from '../utils/numberUtils';
 import './Marketplace.css';
@@ -833,7 +834,9 @@ const Marketplace: React.FC = () => {
                             }}
                             onClick={() => {
                               if (isBalanceUnit) {
-                                navigate('/product-details', { state: { product: row } });
+                                authService.persistSessionToLocalStorage();
+                                const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+                                window.open(`${window.location.origin}${base}product-details/${row.id}`, '_blank', 'noopener,noreferrer');
                               }
                             }}
                             title={typeof displayValue === 'string' ? displayValue : String(displayValue)}

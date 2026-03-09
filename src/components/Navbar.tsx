@@ -17,15 +17,14 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/store";
 import { logout } from "../features/auth/authSlice";
-import { authService } from "../services/authService";
+
 import LogoutIcon from "@mui/icons-material/Logout";
-import MenuIcon from "@mui/icons-material/Menu";
-import SettingsIcon from "@mui/icons-material/Settings";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import logo from "../assets/Rosneft_logo.svg";
 import { useChart } from "../contexts/ChartContext";
+import { authService } from "../services/authService";
 import "./Navbar.css";
 
 const Navbar: React.FC = () => {
@@ -53,26 +52,15 @@ const Navbar: React.FC = () => {
     navigate("/login");
   };
 
-  const handleMenuClick = () => {
-    // TODO: Add menu functionality
-    console.log("Menu clicked");
-  };
-
-  const handleSettingsClick = () => {
-    if (user?.role === 'admin') {
-      navigate('/admin');
-    } else {
-      console.log("Settings clicked");
-    }
-  };
-
   const handleChatClick = () => {
     // TODO: Add chat functionality
     console.log("Chat clicked");
   };
 
   const handleChartClick = () => {
-    navigate("/cart");
+    authService.persistSessionToLocalStorage();
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+    window.open(`${window.location.origin}${base}cart`, '_blank', 'noopener,noreferrer');
   };
 
   const handleProfileClick = () => {
@@ -99,38 +87,26 @@ const Navbar: React.FC = () => {
         {user && (
           <>
             
-            <Box className="navbar-icons-box">
-            <IconButton
-                className="navbar-icon-button"
-                onClick={handleMenuClick}
-                aria-label="menu"
-              >
-                <MenuIcon className="navbar-icon" />
-              </IconButton>
-              <IconButton
-                className="navbar-icon-button"
-                onClick={handleChatClick}
-                aria-label="chat"
-              >
-                <ChatBubbleOutlineIcon className="navbar-icon" />
-              </IconButton>
-              <IconButton
-                className="navbar-icon-button"
-                onClick={handleChartClick}
-                aria-label="корзина"
-              >
-                <Badge badgeContent={chartItems.length} color="warning">
-                  <ShoppingCartIcon className="navbar-icon" />
-                </Badge>
-              </IconButton>
-              <IconButton
-                className="navbar-icon-button"
-                onClick={handleSettingsClick}
-                aria-label="settings"
-              >
-                <SettingsIcon className="navbar-icon" />
-              </IconButton>
-            </Box>
+            {user.role !== "admin" && (
+              <Box className="navbar-icons-box">
+                <IconButton
+                  className="navbar-icon-button"
+                  onClick={handleChatClick}
+                  aria-label="chat"
+                >
+                  <ChatBubbleOutlineIcon className="navbar-icon" />
+                </IconButton>
+                <IconButton
+                  className="navbar-icon-button"
+                  onClick={handleChartClick}
+                  aria-label="корзина"
+                >
+                  <Badge badgeContent={chartItems.length} color="warning">
+                    <ShoppingCartIcon className="navbar-icon" />
+                  </Badge>
+                </IconButton>
+              </Box>
+            )}
             <Box className="navbar-user-box">
               <Box className="navbar-user-info" onClick={handleClick}>
                 <IconButton
@@ -184,7 +160,7 @@ const Navbar: React.FC = () => {
                         />
                       </ListItem>
                     )}
-                    {user.company && (
+                    {user.role !== "admin" && user.company && (
                       <ListItem className="navbar-menu-list-item">
                         <ListItemText
                           primary="Компания"
@@ -198,7 +174,7 @@ const Navbar: React.FC = () => {
                         />
                       </ListItem>
                     )}
-                    {user.branch && (
+                    {user.role !== "admin" && user.branch && (
                       <ListItem className="navbar-menu-list-item">
                         <ListItemText
                           primary="Филиал"
@@ -232,7 +208,9 @@ const Navbar: React.FC = () => {
                         />
                       </ListItem>
                     )}
-                    {user.warehouses && user.warehouses.length > 0 && (
+                    {user.role !== "admin" &&
+                      user.warehouses &&
+                      user.warehouses.length > 0 && (
                       <>
                         <ListItem
                           className="navbar-menu-list-item"

@@ -20,6 +20,8 @@ const AuthInitializer: React.FC = () => {
         if (isValid) {
           // Restore session
           dispatch(restoreSession({ user, token }));
+          // Keep localStorage in sync so new tabs (cart, product details) can restore session
+          authService.persistSessionToLocalStorage(token, user);
         } else {
           // Token is invalid, clear storage
           authService.clearStoredAuth();

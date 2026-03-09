@@ -128,9 +128,9 @@ export const authService = {
   },
 
   storeAuth(token: string, user: AuthResponse['user'], rememberMe: boolean): void {
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('authToken', token);
-    storage.setItem('userSession', JSON.stringify(user));
+    // Always use localStorage so new tabs (cart, product details) can restore session
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('userSession', JSON.stringify(user));
     if (rememberMe) {
       localStorage.setItem('rememberMe', 'true');
     } else {
@@ -140,5 +140,19 @@ export const authService = {
 
   getRememberMe(): boolean {
     return localStorage.getItem('rememberMe') === 'true';
+  },
+
+  /** Save token and user to localStorage so new tabs can restore session. Call with no args to copy from sessionStorage (e.g. before opening a new tab). */
+  persistSessionToLocalStorage(token?: string, user?: AuthResponse['user']): void {
+    const t = token ?? sessionStorage.getItem('authToken');
+    const u = user ?? (() => {
+      const s = sessionStorage.getItem('userSession');
+      if (!s) return null;
+      try { return JSON.parse(s) as AuthResponse['user']; } catch { return null; }
+    })();
+    if (t && u) {
+      localStorage.setItem('authToken', t);
+      localStorage.setItem('userSession', JSON.stringify(u));
+    }
   },
 };

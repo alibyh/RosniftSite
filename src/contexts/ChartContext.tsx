@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { MappedInventoryRow } from '../services/inventoryService';
 import { parseDecimalStr } from '../utils/numberUtils';
+
+const CART_STORAGE_KEY = 'rosneft_cart';
 
 export interface ChartItem {
   id: string;
@@ -16,10 +18,37 @@ interface ChartContextType {
   getQuantity: (id: string) => number | null;
 }
 
+function loadCartFromStorage(): ChartItem[] {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is ChartItem =>
+        item &&
+        typeof item === 'object' &&
+        typeof (item as ChartItem).id === 'string' &&
+        typeof (item as ChartItem).quantity === 'number' &&
+        typeof (item as ChartItem).row === 'object'
+    );
+  } catch {
+    return [];
+  }
+}
+
 const ChartContext = createContext<ChartContextType | null>(null);
 
 export function ChartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<ChartItem[]>([]);
+  const [items, setItems] = useState<ChartItem[]>(() => loadCartFromStorage());
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      // ignore quota or other storage errors
+    }
+  }, [items]);
 
   const addToChart = useCallback((row: MappedInventoryRow, quantity?: number) => {
     const maxQty = parseDecimalStr(String(row.quantity || '0')) || 1;

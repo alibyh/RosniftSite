@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -21,7 +21,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MappedInventoryRow } from '../services/inventoryService';
+import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { geocodeAddress, getRoute, calculateStraightLineDistance } from '../services/mapboxService';
@@ -39,13 +39,53 @@ console.log('If you see Yandex, your browser is using CACHED code!');
 const ProductDetails: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { id: productIdFromUrl } = useParams<{ id: string }>();
   const user = useSelector((state: RootState) => state.auth.user);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
-  
-  // Get product data from navigation state
-  const productData = location.state?.product as MappedInventoryRow | null;
+
+  // Product: from navigation state (same-tab) or fetch by URL id (new tab / direct link)
+  const [productData, setProductData] = useState<MappedInventoryRow | null>(
+    () => (location.state?.product as MappedInventoryRow | null) ?? null
+  );
+  const [productLoading, setProductLoading] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fromState = location.state?.product as MappedInventoryRow | undefined;
+    if (fromState) {
+      setProductData(fromState);
+      setProductError(null);
+      return;
+    }
+    if (!productIdFromUrl) {
+      setProductData(null);
+      return;
+    }
+    let cancelled = false;
+    setProductLoading(true);
+    setProductError(null);
+    inventoryService
+      .getInventoryById(productIdFromUrl)
+      .then((row) => {
+        if (!cancelled) {
+          setProductData(row);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setProductError(err?.message ?? 'Ошибка загрузки продукта');
+          setProductData(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setProductLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productIdFromUrl, location.state]);
 
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>(() => {
     if (user?.warehouses && user.warehouses.length > 0) {
@@ -56,9 +96,13 @@ const ProductDetails: React.FC = () => {
     }
     return '';
   });
-  const [destinationAddress, setDestinationAddress] = useState<string>(
-    productData?.warehouseAddress || ''
-  );
+  const [destinationAddress, setDestinationAddress] = useState<string>('');
+
+  useEffect(() => {
+    if (productData?.warehouseAddress) {
+      setDestinationAddress(productData.warehouseAddress);
+    }
+  }, [productData?.warehouseAddress]);
 
   // Map state
   const [distance, setDistance] = useState<number | null>(null);
@@ -356,6 +400,36 @@ const ProductDetails: React.FC = () => {
       markersRef.current = [];
     };
   }, [selectedWarehouse, destinationAddress]);
+
+  if (productLoading) {
+    return (
+      <Container maxWidth="lg" className="product-details-error-container">
+        <Typography sx={{ color: '#fff', mb: 2 }}>Загрузка продукта...</Typography>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/marketplace')}
+          className="product-details-error-back-button"
+        >
+          Вернуться к списку
+        </Button>
+      </Container>
+    );
+  }
+
+  if (productError) {
+    return (
+      <Container maxWidth="lg" className="product-details-error-container">
+        <Alert severity="error">{productError}</Alert>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/marketplace')}
+          className="product-details-error-back-button"
+        >
+          Вернуться к списку
+        </Button>
+      </Container>
+    );
+  }
 
   if (!productData) {
     return (

@@ -15,6 +15,7 @@ import { Box } from '@mui/material';
 function App() {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const isLoading = useAppSelector((state) => state.auth.isLoading);
+  const user = useAppSelector((state) => state.auth.user);
 
   // Get base path from vite config for GitHub Pages
   const basePath = import.meta.env.BASE_URL || '/';
@@ -49,12 +50,20 @@ function App() {
               path="/marketplace"
               element={
                 <ProtectedRoute>
-                  <Marketplace />
+                  {user?.role === 'admin' ? <Navigate to="/admin" replace /> : <Marketplace />}
                 </ProtectedRoute>
               }
             />
             <Route
               path="/product-details"
+              element={
+                <ProtectedRoute>
+                  <ProductDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/product-details/:id"
               element={
                 <ProtectedRoute>
                   <ProductDetails />
