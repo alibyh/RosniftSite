@@ -296,7 +296,7 @@ const Cart: React.FC = () => {
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>ЕИ</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Количество</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }} title="Вес в тоннах для расчёта доставки (для каждой позиции)">
-                      Тонны
+                      Вес(тн)
                     </TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Сумма</TableCell>
                       <TableCell align="right" sx={{ color: '#FED208', fontWeight: 700 }} />
