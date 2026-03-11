@@ -29,7 +29,8 @@ import { useChart } from '../contexts/ChartContext';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { geocodeAddress, getRouteWithWaypoints } from '../services/mapboxService';
-import { parseDecimalStr, sanitizeQuantityInput } from '../utils/numberUtils';
+import { parseDecimalStr, sanitizeQuantityInput, formatForDisplay } from '../utils/numberUtils';
+import { legDeliveryCostRub, effectiveWeightTons, getDeliveryRate } from '../utils/deliveryCalculation';
 import './ProductDetails.css';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
@@ -41,12 +42,13 @@ const parsePrice = (str: string): number => {
 const Cart: React.FC = () => {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.auth.user);
-  const { items, updateQuantity, removeFromChart } = useChart();
+  const { items, updateQuantity, updateTons, removeFromChart } = useChart();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
 
   const [warehouseOrder, setWarehouseOrder] = useState<string[]>([]);
+  const [routeLegDistancesKm, setRouteLegDistancesKm] = useState<number[]>([]);
   const [loadingMap, setLoadingMap] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -60,6 +62,7 @@ const Cart: React.FC = () => {
   const [selectedDestination, setSelectedDestination] = useState<string>('');
   const destinationAddress = selectedDestination?.trim() || null;
   const [qtyEditing, setQtyEditing] = useState<{ id: string; value: string } | null>(null);
+  const [tonsEditing, setTonsEditing] = useState<{ id: string; value: string } | null>(null);
 
   useEffect(() => {
     if (userWarehouseAddresses.length > 0 && !selectedDestination) {
@@ -90,7 +93,35 @@ const Cart: React.FC = () => {
     }, 0);
   }, [items]);
 
-  const [deliveryPrice] = useState(() => Math.round(500 + Math.random() * 3000));
+  /**
+   * Per-leg delivery details.
+   * For leg i: cumulative weight, effective weight (для тарифа), rate, cost.
+   */
+  const routeLegDetails = useMemo((): Array<{ cumTons: number; effectiveTons: number; rate: number; cost: number }> => {
+    if (routeLegDistancesKm.length === 0) return [];
+    const tonsForItem = (item: (typeof items)[0]) => {
+      const u = (item.row.unit || '').trim().toLowerCase();
+      const isTon = /^(т|тонн|тонна|тонны|t|ton|tonne)s?$/.test(u);
+      return isTon ? item.quantity : (item.tons ?? 0);
+    };
+    return routeLegDistancesKm.map((distanceKm, legIndex) => {
+      const warehousesSoFar = new Set(warehouseOrder.slice(0, legIndex + 1));
+      const cumTons = items
+        .filter((item) => warehousesSoFar.has((item.row.warehouseAddress || '').trim()))
+        .reduce((sum, item) => sum + tonsForItem(item), 0);
+      const effectiveTons = effectiveWeightTons(cumTons);
+      const rate = cumTons > 0 ? getDeliveryRate(effectiveTons, distanceKm) : 0;
+      const cost = legDeliveryCostRub(cumTons, distanceKm);
+      return { cumTons, effectiveTons, rate, cost };
+    });
+  }, [items, warehouseOrder, routeLegDistancesKm]);
+
+  const routeLegCosts = useMemo(() => routeLegDetails.map((d) => d.cost), [routeLegDetails]);
+
+  const deliveryPrice = useMemo(
+    () => routeLegCosts.reduce((a, b) => a + b, 0),
+    [routeLegCosts]
+  );
 
   // Initialize map
   useEffect(() => {
@@ -153,6 +184,9 @@ const Cart: React.FC = () => {
         const routeData = await getRouteWithWaypoints(coords);
 
         if (routeData && map) {
+          setRouteLegDistancesKm(
+            routeData.legs.map((leg) => Math.round((leg.distance / 1000) * 10) / 10)
+          );
           map.addSource('route', {
             type: 'geojson',
             data: {
@@ -192,9 +226,12 @@ const Cart: React.FC = () => {
           const bounds = new mapboxgl.LngLatBounds();
           coords.forEach((c) => bounds.extend(c));
           map.fitBounds(bounds, { padding: { top: 50, bottom: 50, left: 50, right: 50 }, duration: 1000 });
+        } else {
+          setRouteLegDistancesKm([]);
         }
       } catch {
         setMapError('Ошибка построения маршрута');
+        setRouteLegDistancesKm([]);
       }
       setLoadingMap(false);
     };
@@ -258,6 +295,9 @@ const Cart: React.FC = () => {
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наим. материала</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>ЕИ</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Количество</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }} title="Вес в тоннах для расчёта доставки (для каждой позиции)">
+                      Тонны
+                    </TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Сумма</TableCell>
                       <TableCell align="right" sx={{ color: '#FED208', fontWeight: 700 }} />
                     </TableRow>
@@ -269,7 +309,10 @@ const Cart: React.FC = () => {
                       const pricePerUnit = rowQty > 0 ? cost / rowQty : cost;
                       const itemTotal = pricePerUnit * item.quantity;
                       const maxQty = rowQty;
+                      const unit = (item.row.unit || '').trim().toLowerCase();
+                      const isUnitTon = /^(т|тонн|тонна|тонны|t|ton|tonne)s?$/.test(unit);
                       const displayQty = qtyEditing?.id === item.id ? qtyEditing.value : String(item.quantity);
+                      const displayTons = tonsEditing?.id === item.id ? tonsEditing.value : String(isUnitTon ? item.quantity : (item.tons ?? ''));
                       return (
                         <TableRow key={item.id}>
                           <TableCell sx={{ color: '#fff' }}>{item.row.companyName || '-'}</TableCell>
@@ -291,14 +334,70 @@ const Cart: React.FC = () => {
                                 const valid = !isNaN(parsed) && parsed > 0;
                                 const clamped = valid ? Math.min(parsed, maxQty) : Math.min(1, maxQty);
                                 updateQuantity(item.id, clamped);
+                                if (isUnitTon) updateTons(item.id, clamped);
                                 setQtyEditing(null);
                               }}
                               onFocus={() => setQtyEditing({ id: item.id, value: String(item.quantity) })}
                               inputProps={{ min: 0, step: 0.001 }}
-                              sx={{ width: 90, '& .MuiOutlinedInput-root': { color: '#fff' } }}
+                              sx={{
+                                width: 90,
+                                '& .MuiOutlinedInput-root': {
+                                  color: '#fff',
+                                  '& fieldset': { borderColor: '#fff' },
+                                  '&:hover fieldset': { borderColor: '#fff' },
+                                  '&.Mui-focused fieldset': { borderColor: '#fff' },
+                                },
+                              }}
                             />
                           </TableCell>
-                          <TableCell sx={{ color: '#fff' }}>{itemTotal.toFixed(2)}</TableCell>
+                          <TableCell sx={{ color: '#fff' }}>
+                            {isUnitTon ? (
+                              <TextField
+                                size="small"
+                                value={displayTons}
+                                inputProps={{ readOnly: true }}
+                                placeholder="т"
+                                sx={{
+                                  width: 80,
+                                  '& .MuiOutlinedInput-root': {
+                                    color: '#fff',
+                                    '& fieldset': { borderColor: '#fff' },
+                                    '& input': { cursor: 'default' },
+                                  },
+                                }}
+                              />
+                            ) : (
+                              <TextField
+                                type="text"
+                                inputMode="decimal"
+                                size="small"
+                                value={displayTons}
+                                onChange={(e) =>
+                                  setTonsEditing({ id: item.id, value: sanitizeQuantityInput(e.target.value) })
+                                }
+                                onBlur={() => {
+                                  const raw = tonsEditing?.id === item.id ? tonsEditing.value : String(item.tons ?? '');
+                                  const parsed = parseDecimalStr(raw);
+                                  const valid = !isNaN(parsed) && parsed >= 0;
+                                  updateTons(item.id, valid ? parsed : 0);
+                                  setTonsEditing(null);
+                                }}
+                                onFocus={() => setTonsEditing({ id: item.id, value: String(item.tons ?? '') })}
+                                placeholder="т"
+                                inputProps={{ min: 0, step: 0.001 }}
+                                sx={{
+                                  width: 80,
+                                  '& .MuiOutlinedInput-root': {
+                                    color: '#fff',
+                                    '& fieldset': { borderColor: '#fff' },
+                                    '&:hover fieldset': { borderColor: '#fff' },
+                                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                                  },
+                                }}
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ color: '#fff' }}>{formatForDisplay(itemTotal, 2)}</TableCell>
                           <TableCell align="right">
                             <IconButton size="small" onClick={() => removeFromChart(item.id)} sx={{ color: '#FED208' }} title="Удалить">
                               <DeleteOutlineIcon />
@@ -321,30 +420,67 @@ const Cart: React.FC = () => {
               </Typography>
               <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)', mb: 2 }} />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {warehouseOrder.map((addr, idx) => (
-                  <Box
-                    key={`${addr}-${idx}`}
-                    draggable
-                    onDragStart={() => handleDragStart(idx)}
-                    onDragOver={handleDragOver}
-                    onDrop={() => handleDrop(idx)}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      p: 1,
-                      borderRadius: 1,
-                      bgcolor: draggedIndex === idx ? 'rgba(254,210,8,0.2)' : 'rgba(255,255,255,0.05)',
-                      cursor: 'grab',
-                      border: '1px solid rgba(254,210,8,0.2)',
-                    }}
-                  >
-                    <DragIndicatorIcon sx={{ color: '#FED208', cursor: 'grab' }} />
-                    <Typography variant="body2" sx={{ color: '#fff', flex: 1 }} noWrap title={addr}>
-                      {idx + 1}. {addr}
+                {warehouseOrder.map((addr, idx) => {
+                  const legKm = routeLegDistancesKm[idx];
+                  const legDetail = routeLegDetails[idx];
+                  const hasLeg = legKm != null && (
+                    destinationAddress ? true : idx < warehouseOrder.length - 1
+                  );
+                  return (
+                    <Box key={`${addr}-${idx}`} sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                      <Box
+                        draggable
+                        onDragStart={() => handleDragStart(idx)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(idx)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          p: 1,
+                          borderRadius: 1,
+                          bgcolor: draggedIndex === idx ? 'rgba(254,210,8,0.2)' : 'rgba(255,255,255,0.05)',
+                          cursor: 'grab',
+                          border: '1px solid rgba(254,210,8,0.2)',
+                        }}
+                      >
+                        <DragIndicatorIcon sx={{ color: '#FED208', cursor: 'grab' }} />
+                        <Typography variant="body2" sx={{ color: '#fff', flex: 1 }} noWrap title={addr}>
+                          {idx + 1}. {addr}
+                        </Typography>
+                      </Box>
+                      {hasLeg && legDetail && (
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.5, px: 1.5, py: 0.5, bgcolor: 'rgba(0,0,0,0.2)', borderLeft: '2px solid rgba(254,210,8,0.3)', ml: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                              ↓ {formatForDisplay(legKm, 1)} км · {legDetail.cumTons > 0 ? `${formatForDisplay(legDetail.cumTons, 3)} т → ${formatForDisplay(legDetail.effectiveTons, legDetail.effectiveTons % 1 === 0 ? 0 : 3)} т (тариф)` : 'нет тонн'}
+                            </Typography>
+                            {legDetail.cumTons > 0 && legDetail.rate > 0 && (
+                              <Typography variant="caption" sx={{ color: '#FED208', fontWeight: 600 }}>
+                                × {formatForDisplay(legDetail.rate, 2)}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Typography variant="caption" sx={{ color: legDetail.cost > 0 ? '#FED208' : 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                            {legDetail.cost > 0 ? `${formatForDisplay(legDetail.cost, 2)} ₽` : '—'}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+                {routeLegDistancesKm.length > 0 && (
+                  <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'space-between', px: 1 }}>
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Всего по маршруту: {formatForDisplay(routeLegDistancesKm.reduce((a, b) => a + b, 0), 1)} км
                     </Typography>
+                    {deliveryPrice > 0 && (
+                      <Typography variant="body2" sx={{ color: '#FED208', fontWeight: 600 }}>
+                        {formatForDisplay(deliveryPrice, 2)} ₽
+                      </Typography>
+                    )}
                   </Box>
-                ))}
+                )}
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1.5 }}>
                     Адрес назначения (куда)
@@ -391,34 +527,32 @@ const Cart: React.FC = () => {
             </Paper>
           </Box>
 
-          <Box className="product-details-right-box">
-            <Paper className="product-details-paper">
-              <Typography variant="h6" className="product-details-section-title">
-                Итого
-              </Typography>
-              <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)', my: 2 }} />
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography sx={{ color: '#fff' }}>Стоимость товаров:</Typography>
-                  <Typography sx={{ color: '#FED208', fontWeight: 700 }}>{totalPrice.toFixed(2)} ₽</Typography>
+          <Paper className="product-details-paper" sx={{ mt: 3, width: '100%', maxWidth: 720 }}>
+            <Typography variant="h6" className="product-details-section-title">
+              Итого
+            </Typography>
+            <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)', my: 2 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography sx={{ color: '#fff' }}>Стоимость товаров:</Typography>
+                <Typography sx={{ color: '#FED208', fontWeight: 700 }}>{formatForDisplay(totalPrice, 2)} ₽</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography sx={{ color: '#fff' }}>Доставка:</Typography>
-                  <Typography sx={{ color: '#FED208', fontWeight: 700 }}>{deliveryPrice.toFixed(2)} ₽</Typography>
+                  <Typography sx={{ color: '#FED208', fontWeight: 700 }}>{formatForDisplay(deliveryPrice, 2)} ₽</Typography>
                 </Box>
                 <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)' }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography sx={{ color: '#fff', fontWeight: 700 }}>Всего:</Typography>
                   <Typography sx={{ color: '#FED208', fontWeight: 700, fontSize: '1.25rem' }}>
-                    {(totalPrice + deliveryPrice).toFixed(2)} ₽
-                  </Typography>
-                </Box>
+                    {formatForDisplay(totalPrice + deliveryPrice, 2)} ₽
+                </Typography>
               </Box>
-              <Button variant="contained" fullWidth className="product-details-order-button" sx={{ mt: 3 }}>
-                Оформить заказ
-              </Button>
-            </Paper>
-          </Box>
+            </Box>
+            <Button variant="contained" fullWidth className="product-details-order-button" sx={{ mt: 3 }}>
+              Оформить заказ
+            </Button>
+          </Paper>
         </Box>
       </Container>
     </Box>

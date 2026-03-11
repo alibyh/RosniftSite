@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -234,63 +235,74 @@ const AdminPanel: React.FC = () => {
             <Box className="admin-section-header">
               <Typography variant="h6">Управление рентабельностью по БЕ</Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-              <FormControl
-                size="small"
-                sx={{
-                  minWidth: 180,
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
-                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.55)' },
-                    '&:hover fieldset': { borderColor: '#fff' },
-                    '&.Mui-focused fieldset': { borderColor: '#fff' },
-                  },
-                }}
-              >
-                <InputLabel>Фильтр БЕ</InputLabel>
-                <Select
-                  value={profitFilterBe}
-                  label="Фильтр БЕ"
-                  onChange={(e) => setProfitFilterBe(e.target.value)}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Autocomplete
+                  size="small"
+                  options={beFilterOptions}
+                  value={profitFilterBe || null}
+                  onChange={(_e, newValue) => setProfitFilterBe(newValue ?? '')}
+                  getOptionLabel={(opt) => String(opt)}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="Все" label="БЕ" />
+                  )}
+                  sx={{
+                    minWidth: 180,
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(42,42,42,0.99)',
+                      color: '#fff',
+                      '& fieldset': { borderColor: profitFilterBe ? '#FED208' : 'rgba(255,255,255,0.23)' },
+                      '&:hover fieldset': { borderColor: '#FED208' },
+                    },
+                    '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                    '& .MuiInputBase-input': { color: '#fff' },
+                    '& .MuiAutocomplete-clearIndicator': { color: 'rgba(255,255,255,0.54)' },
+                    '& .MuiAutocomplete-popupIndicator': { color: 'rgba(255,255,255,0.54)' },
+                  }}
+                />
+                <Autocomplete
+                  size="small"
+                  options={companyFilterOptions}
+                  value={profitFilterCompany || null}
+                  onChange={(_e, newValue) => setProfitFilterCompany(newValue ?? '')}
+                  getOptionLabel={(opt) => String(opt)}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="Все" label="Общество" />
+                  )}
+                  sx={{
+                    minWidth: 320,
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: 'rgba(42,42,42,0.99)',
+                      color: '#fff',
+                      '& fieldset': { borderColor: profitFilterCompany ? '#FED208' : 'rgba(255,255,255,0.23)' },
+                      '&:hover fieldset': { borderColor: '#FED208' },
+                    },
+                    '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                    '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                    '& .MuiInputBase-input': { color: '#fff' },
+                    '& .MuiAutocomplete-clearIndicator': { color: 'rgba(255,255,255,0.54)' },
+                    '& .MuiAutocomplete-popupIndicator': { color: 'rgba(255,255,255,0.54)' },
+                  }}
+                />
+              </Box>
+              {(profitFilterBe || profitFilterCompany) && (
+                <Typography
+                  variant="body2"
+                  onClick={() => {
+                    setProfitFilterBe('');
+                    setProfitFilterCompany('');
+                  }}
+                  sx={{
+                    color: '#FED208',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    '&:hover': { opacity: 0.9 },
+                  }}
                 >
-                  <MenuItem value="">Все</MenuItem>
-                  {beFilterOptions.map((be) => (
-                    <MenuItem key={be} value={be}>
-                      {be}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl
-                size="small"
-                sx={{
-                  minWidth: 320,
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
-                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.55)' },
-                    '&:hover fieldset': { borderColor: '#fff' },
-                    '&.Mui-focused fieldset': { borderColor: '#fff' },
-                  },
-                }}
-              >
-                <InputLabel>Фильтр Общество</InputLabel>
-                <Select
-                  value={profitFilterCompany}
-                  label="Фильтр Общество"
-                  onChange={(e) => setProfitFilterCompany(e.target.value)}
-                >
-                  <MenuItem value="">Все</MenuItem>
-                  {companyFilterOptions.map((company) => (
-                    <MenuItem key={company} value={company}>
-                      {company}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  Очистить все фильтры
+                </Typography>
+              )}
             </Box>
             <TableContainer className="admin-table-container">
               <Table>

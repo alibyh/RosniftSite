@@ -8,12 +8,15 @@ export interface ChartItem {
   id: string;
   row: MappedInventoryRow;
   quantity: number;
+  /** Weight in tons for delivery calculation */
+  tons?: number;
 }
 
 interface ChartContextType {
   items: ChartItem[];
   addToChart: (row: MappedInventoryRow, quantity?: number) => void;
   updateQuantity: (id: string, quantity: number) => void;
+  updateTons: (id: string, tons: number) => void;
   removeFromChart: (id: string) => void;
   getQuantity: (id: string) => number | null;
 }
@@ -53,18 +56,27 @@ export function ChartProvider({ children }: { children: ReactNode }) {
   const addToChart = useCallback((row: MappedInventoryRow, quantity?: number) => {
     const maxQty = parseDecimalStr(String(row.quantity || '0')) || 1;
     const qty = quantity ?? maxQty;
+    const unit = (row.unit || '').trim().toLowerCase();
+    const isTon = /^(т|тонн|тонна|тонны|t|ton|tonne)s?$/.test(unit);
+    const initialTons = isTon ? Math.min(qty, maxQty) : 0;
     setItems((prev) => {
       const exists = prev.find((i) => i.id === row.id);
       if (exists) {
-        return prev.map((i) => (i.id === row.id ? { ...i, quantity: qty } : i));
+        return prev.map((i) => (i.id === row.id ? { ...i, quantity: qty, ...(isTon && { tons: initialTons }) } : i));
       }
-      return [...prev, { id: row.id, row, quantity: Math.min(qty, maxQty) }];
+      return [...prev, { id: row.id, row, quantity: Math.min(qty, maxQty), tons: initialTons }];
     });
   }, []);
 
   const updateQuantity = useCallback((id: string, quantity: number) => {
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, quantity: Math.max(0, quantity) } : i)).filter((i) => i.quantity > 0)
+    );
+  }, []);
+
+  const updateTons = useCallback((id: string, tons: number) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, tons: Math.max(0, tons) } : i))
     );
   }, []);
 
@@ -81,7 +93,7 @@ export function ChartProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <ChartContext.Provider value={{ items, addToChart, updateQuantity, removeFromChart, getQuantity }}>
+    <ChartContext.Provider value={{ items, addToChart, updateQuantity, updateTons, removeFromChart, getQuantity }}>
       {children}
     </ChartContext.Provider>
   );

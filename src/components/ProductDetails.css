@@ -106,6 +106,11 @@
   align-items: stretch;
 }
 
+/* Cart page: single column, totals at bottom */
+.product-details-content-box.cart-page {
+  flex-direction: column;
+}
+
 @media (max-width: 900px) {
   .product-details-content-box {
     flex-direction: column;
@@ -357,6 +362,13 @@
 
 .product-details-select.Mui-focused .MuiOutlinedInput-notchedOutline {
   border-color: #FED208 !important;
+}
+
+/* Cart page: white borders on inputs */
+.cart-page .product-details-select .MuiOutlinedInput-notchedOutline,
+.cart-page .product-details-select:hover .MuiOutlinedInput-notchedOutline,
+.cart-page .product-details-select.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #fff !important;
 }
 
 .product-details-select .MuiSvgIcon-root {

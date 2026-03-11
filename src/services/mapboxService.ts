@@ -281,14 +281,19 @@ export const getRoute = async (
   }
 };
 
+export interface RouteLeg {
+  distance: number; // meters
+  duration: number; // seconds
+}
+
 /**
  * Get route through multiple waypoints (2-25 coordinates)
  * @param coordinates - Array of [longitude, latitude] in visit order
- * @returns Combined route data or null
+ * @returns Combined route data with legs (per-segment distance/duration) or null
  */
 export const getRouteWithWaypoints = async (
   coordinates: [number, number][]
-): Promise<{ geometry: any; distance: number; duration: number } | null> => {
+): Promise<{ geometry: any; distance: number; duration: number; legs: RouteLeg[] } | null> => {
   if (!coordinates || coordinates.length < 2) return null;
   if (MAPBOX_API_KEY === 'YOUR_MAPBOX_ACCESS_TOKEN') return null;
 
@@ -302,10 +307,15 @@ export const getRouteWithWaypoints = async (
     const data = await response.json();
     if (data.routes && data.routes.length > 0) {
       const route = data.routes[0];
+      const legs: RouteLeg[] = (route.legs || []).map((leg: { distance?: number; duration?: number }) => ({
+        distance: leg.distance ?? 0,
+        duration: leg.duration ?? 0,
+      }));
       return {
         geometry: route.geometry,
         distance: route.distance,
         duration: route.duration,
+        legs,
       };
     }
     return null;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAppSelector } from '../store/store';
+import type { RootState } from '../store/store';
 import {
   Box,
   Container,
@@ -58,7 +59,7 @@ function formatNumber(value: string | number): string {
 }
 
 const Marketplace: React.FC = () => {
-  const user = useAppSelector((state) => state.auth.user);
+  const user = useAppSelector((state: RootState) => state.auth.user);
   const [data, setData] = useState<MappedInventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -310,18 +311,6 @@ const Marketplace: React.FC = () => {
 
   const clearAllFilters = () => {
     setColumnFilters({});
-  };
-
-  const handleProfitabilityChange = async (balanceUnit: string, value: string) => {
-    try {
-      await inventoryService.updateProfitabilityForBalanceUnit(balanceUnit, value);
-      setData((prev) =>
-        prev.map((r) => (r.balanceUnit === balanceUnit ? { ...r, profitability: value } : r))
-      );
-    } catch (err) {
-      console.error('Error updating profitability:', err);
-      setUploadMessage({ type: 'error', text: 'Ошибка обновления рентабельности' });
-    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -613,31 +602,9 @@ const Marketplace: React.FC = () => {
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block', mb: 0.5 }}>
                   Рентабельность, %
                 </Typography>
-                <TextField
-                  size="small"
-                  value={dataForTab[0]?.profitability ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setData((prev) =>
-                      prev.map((r) =>
-                        r.balanceUnit === user.companyId ? { ...r, profitability: val } : r
-                      )
-                    );
-                  }}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    const current = dataForTab[0]?.profitability ?? '';
-                    if (v !== current) handleProfitabilityChange(user.companyId, v);
-                  }}
-                  sx={{
-                    width: 100,
-                    '& .MuiOutlinedInput-root': {
-                      color: '#fff',
-                      '& fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-                      '&:hover fieldset': { borderColor: '#FED208' },
-                    },
-                  }}
-                />
+                <Typography sx={{ color: '#fff', fontWeight: 500 }}>
+                  {dataForTab[0]?.profitability ?? '—'}
+                </Typography>
               </Box>
             </Box>
           </Paper>
