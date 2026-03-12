@@ -34,7 +34,26 @@ import EditIcon from '@mui/icons-material/Edit';
 import { MockUser } from '../features/auth/data/mockUsers';
 import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
 import { userService, UserFormData } from '../services/userService';
+import {
+  deliveryRatesService,
+  DeliveryRate,
+  type DistanceBand,
+  type WeightBand,
+} from '../services/deliveryRatesService';
+import { useDeliveryRates } from '../contexts/DeliveryRatesContext';
 import './AdminPanel.css';
+
+const WEIGHT_LABELS: Record<WeightBand, string> = {
+  '10-18': 'От 10 до 18 тонн включительно',
+  over18: 'Более 18 тонн',
+};
+
+const DISTANCE_LABELS: Record<DistanceBand, string> = {
+  '50-250': 'От 50 до 250',
+  '251-1000': 'От 251 до 1000',
+  '1001-2999': 'От 1001 до 2999',
+  '3000+': 'От 3000 и более',
+};
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -71,9 +90,60 @@ const AdminPanel: React.FC = () => {
   const [editingUser, setEditingUser] = useState<MockUser | null>(null);
   const [userFormData, setUserFormData] = useState<Partial<UserFormData>>({});
 
+  const [ratesRows, setRatesRows] = useState<DeliveryRate[]>([]);
+  const [loadingRates, setLoadingRates] = useState(false);
+  const [savingRateId, setSavingRateId] = useState<string | null>(null);
+  const [ratesByKey, setRatesByKey] = useState<Record<string, string>>({});
+  const { refreshRates } = useDeliveryRates();
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (tabValue === 2) loadRates();
+  }, [tabValue]);
+
+  const loadRates = async () => {
+    try {
+      setLoadingRates(true);
+      setError(null);
+      const rows = await deliveryRatesService.getAllRates();
+      setRatesRows(rows);
+      const byKey: Record<string, string> = {};
+      rows.forEach((r) => {
+        byKey[r.id] = String(r.rate);
+      });
+      setRatesByKey(byKey);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Ошибка загрузки тарифов';
+      setError(msg.includes('policy') || msg.includes('RLS') || msg.includes('permission')
+        ? `${msg} Выполните в Supabase: supabase/migrations/20250309_delivery_rates_allow_read.sql`
+        : msg);
+    } finally {
+      setLoadingRates(false);
+    }
+  };
+
+  const handleSaveRate = async (row: DeliveryRate) => {
+    const raw = ratesByKey[row.id] ?? String(row.rate);
+    const parsed = parseFloat(String(raw).replace(',', '.'));
+    if (isNaN(parsed) || parsed < 0) {
+      setError('Введите корректное значение ставки');
+      return;
+    }
+    try {
+      setSavingRateId(row.id);
+      setError(null);
+      await deliveryRatesService.updateRate(row.id, parsed);
+      setRatesRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, rate: parsed } : r)));
+      await refreshRates();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения ставки');
+    } finally {
+      setSavingRateId(null);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -228,6 +298,7 @@ const AdminPanel: React.FC = () => {
             <Tabs value={tabValue} onChange={(_e, n) => setTabValue(n)} className="admin-tabs">
               <Tab label="Рентабельность" />
               <Tab label="Пользователи" />
+              <Tab label="Тарифы доставки" />
             </Tabs>
           </Box>
 
@@ -421,6 +492,76 @@ const AdminPanel: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={2}>
+            <Box className="admin-section-header">
+              <Typography variant="h6">Тарифы доставки (ставки за 1 т·км)</Typography>
+            </Box>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
+              Редактируйте ставки для расчёта стоимости доставки в корзине.
+            </Typography>
+            {loadingRates ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress className="admin-loading-spinner" />
+              </Box>
+            ) : ratesRows.length === 0 ? (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Таблица delivery_rates не создана или пуста. Выполните миграцию в Supabase: supabase/migrations/20250309_delivery_rates.sql
+              </Alert>
+            ) : (
+              <TableContainer className="admin-table-container">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Загрузка, тонн</TableCell>
+                      <TableCell>Расстояние, км</TableCell>
+                      <TableCell>Ставка, ₽ за 1 т·км</TableCell>
+                      <TableCell align="right">Действия</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {ratesRows.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{WEIGHT_LABELS[row.weight_band]}</TableCell>
+                        <TableCell>{DISTANCE_LABELS[row.distance_band]}</TableCell>
+                        <TableCell>
+                          <TextField
+                            size="small"
+                            type="number"
+                            inputProps={{ min: 0, step: 0.01 }}
+                            value={ratesByKey[row.id] ?? row.rate}
+                            onChange={(e) =>
+                              setRatesByKey((prev) => ({ ...prev, [row.id]: e.target.value }))
+                            }
+                            sx={{
+                              width: 120,
+                              '& .MuiOutlinedInput-root': {
+                                color: '#fff',
+                                '& fieldset': { borderColor: 'rgba(255,255,255,0.65)' },
+                                '&:hover fieldset': { borderColor: '#fff' },
+                                '&.Mui-focused fieldset': { borderColor: '#fff' },
+                              },
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleSaveRate(row)}
+                            className="admin-save-button"
+                            disabled={savingRateId === row.id}
+                          >
+                            {savingRateId === row.id ? 'Сохранение...' : 'Сохранить'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
         </Paper>
 

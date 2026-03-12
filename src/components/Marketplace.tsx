@@ -120,7 +120,7 @@ const Marketplace: React.FC = () => {
 
   const columns = [
     { key: 'balanceUnit', label: 'БЕ', field: 'balanceUnit' },
-    { key: 'companyName', label: 'Наименование дочернего Общества', field: 'companyName' },
+    { key: 'companyName', label: 'Наименование общества', field: 'companyName' },
     { key: 'receiptDate', label: 'Дата поступления', field: 'receiptDate' },
     { key: 'warehouseAddress', label: 'Адрес склада', field: 'warehouseAddress' },
     { key: 'materialClass', label: 'Класс МТР', field: 'materialClass' },

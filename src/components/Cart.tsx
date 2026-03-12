@@ -31,6 +31,7 @@ import { RootState } from '../store/store';
 import { geocodeAddress, getRouteWithWaypoints } from '../services/mapboxService';
 import { parseDecimalStr, sanitizeQuantityInput, formatForDisplay } from '../utils/numberUtils';
 import { legDeliveryCostRub, effectiveWeightTons, getDeliveryRate } from '../utils/deliveryCalculation';
+import { useDeliveryRates } from '../contexts/DeliveryRatesContext';
 import './ProductDetails.css';
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
@@ -43,6 +44,7 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.auth.user);
   const { items, updateQuantity, updateTons, removeFromChart } = useChart();
+  const { rates } = useDeliveryRates();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -110,11 +112,11 @@ const Cart: React.FC = () => {
         .filter((item) => warehousesSoFar.has((item.row.warehouseAddress || '').trim()))
         .reduce((sum, item) => sum + tonsForItem(item), 0);
       const effectiveTons = effectiveWeightTons(cumTons);
-      const rate = cumTons > 0 ? getDeliveryRate(effectiveTons, distanceKm) : 0;
-      const cost = legDeliveryCostRub(cumTons, distanceKm);
+      const rate = cumTons > 0 ? getDeliveryRate(effectiveTons, distanceKm, rates) : 0;
+      const cost = legDeliveryCostRub(cumTons, distanceKm, rates);
       return { cumTons, effectiveTons, rate, cost };
     });
-  }, [items, warehouseOrder, routeLegDistancesKm]);
+  }, [items, warehouseOrder, routeLegDistancesKm, rates]);
 
   const routeLegCosts = useMemo(() => routeLegDetails.map((d) => d.cost), [routeLegDetails]);
 
@@ -290,13 +292,13 @@ const Cart: React.FC = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наим. доч. общества</TableCell>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Код</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наим. общества</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Код КСМ</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наим. материала</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>ЕИ</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Количество</TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }} title="Вес в тоннах для расчёта доставки (для каждой позиции)">
-                      Вес(тн)
+                      Вес, тн
                     </TableCell>
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Сумма</TableCell>
                       <TableCell align="right" sx={{ color: '#FED208', fontWeight: 700 }} />
@@ -413,10 +415,10 @@ const Cart: React.FC = () => {
 
             <Paper className="product-details-paper" sx={{ mt: 2 }}>
               <Typography variant="h6" className="product-details-section-title">
-                Порядок маршрута
+              Маршрут доставки
               </Typography>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1 }}>
-                Перетащите для изменения порядка
+                Перетащите для изменения маршрута
               </Typography>
               <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)', mb: 2 }} />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -453,7 +455,7 @@ const Cart: React.FC = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.5, px: 1.5, py: 0.5, bgcolor: 'rgba(0,0,0,0.2)', borderLeft: '2px solid rgba(254,210,8,0.3)', ml: 2 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                              ↓ {formatForDisplay(legKm, 1)} км · {legDetail.cumTons > 0 ? `${formatForDisplay(legDetail.cumTons, 3)} т → ${formatForDisplay(legDetail.effectiveTons, legDetail.effectiveTons % 1 === 0 ? 0 : 3)} т (тариф)` : 'нет тонн'}
+                              ↓ {formatForDisplay(legKm, 1)} км · {legDetail.cumTons > 0 ? `${formatForDisplay(legDetail.cumTons, 3)} т → ${formatForDisplay(legDetail.effectiveTons, legDetail.effectiveTons % 1 === 0 ? 0 : 3)}` : 'нет тонн'}
                             </Typography>
                             {legDetail.cumTons > 0 && legDetail.rate > 0 && (
                               <Typography variant="caption" sx={{ color: '#FED208', fontWeight: 600 }}>

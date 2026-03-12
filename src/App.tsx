@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import AuthInitializer from './components/AuthInitializer';
 import { ChartProvider } from './contexts/ChartContext';
+import { DeliveryRatesProvider } from './contexts/DeliveryRatesContext';
 import { useAppSelector } from './store/store';
 import { Box } from '@mui/material';
 
@@ -29,8 +30,9 @@ function App() {
       }}
     >
       <ChartProvider>
+        <DeliveryRatesProvider>
         <AuthInitializer />
-        <Box sx={{ display: 'flex', flexDirection: 'column', width:'90%', minHeight: '100vh' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', width:'98%', minHeight: '100vh' }}>
         {isAuthenticated && <Navbar />}
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', color: '#FED208' }}>
@@ -89,6 +91,7 @@ function App() {
           </Routes>
         )}
         </Box>
+        </DeliveryRatesProvider>
       </ChartProvider>
     </Router>
   );
