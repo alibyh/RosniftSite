@@ -18,6 +18,7 @@ interface ChartContextType {
   updateQuantity: (id: string, quantity: number) => void;
   updateTons: (id: string, tons: number) => void;
   removeFromChart: (id: string) => void;
+  clearChart: () => void;
   getQuantity: (id: string) => number | null;
 }
 
@@ -84,6 +85,10 @@ export function ChartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
+  const clearChart = useCallback(() => {
+    setItems([]);
+  }, []);
+
   const getQuantity = useCallback(
     (id: string) => {
       const item = items.find((i) => i.id === id);
@@ -93,7 +98,7 @@ export function ChartProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <ChartContext.Provider value={{ items, addToChart, updateQuantity, updateTons, removeFromChart, getQuantity }}>
+    <ChartContext.Provider value={{ items, addToChart, updateQuantity, updateTons, removeFromChart, clearChart, getQuantity }}>
       {children}
     </ChartContext.Provider>
   );

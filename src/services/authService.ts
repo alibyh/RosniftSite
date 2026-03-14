@@ -1,7 +1,8 @@
 // src/services/authService.ts
-import { findUserByCredentials } from '../features/auth/data/mockUsers';
+import { userService } from './userService';
+import { verifyPassword } from '../utils/passwordUtils';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+export type UserRole = 'admin' | 'manager';
 
 export interface LoginCredentials {
   username: string;
@@ -14,92 +15,54 @@ export interface AuthResponse {
     id: string;
     username: string;
     fullName: string;
+    email: string;
     company: string;
     branch?: string;
     companyId: string;
-    warehouses: Array<{ id: string; address: string }>;
-    role: 'admin' | 'user' | 'manager';
+    warehouses: Array<{ id?: string; address?: string }>;
+    role: UserRole;
   };
 }
 
 export const authService = {
-    async login(credentials: LoginCredentials): Promise<AuthResponse> {
-        // For development: Use mock users if API is not available
-        if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-          const user = findUserByCredentials(credentials.username, credentials.password);
-          
-          if (!user) {
-            throw new Error('INVALID_CREDENTIALS');
-          }
-    
-          // Simulate API delay
-          await new Promise(resolve => setTimeout(resolve, 1000));
-    
-          // Return mock response
-          return {
-            token: `mock-token-${user.id}-${Date.now()}`,
-            user: {
-              id: user.id,
-              username: user.username,
-              fullName: user.fullName,
-              company: user.company,
-              branch: user.branch,
-              companyId: user.companyId,
-              warehouses: user.warehouses.map((warehouse, index) => ({
-                id: `${user.id}-warehouse-${index}`,
-                address: warehouse.address
-              })),
-              role: user.role
-            }
-          };
-        }
-    
-        // Production: Use real API
-        const response = await fetch(`${API_BASE_URL}/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(credentials),
-        });
-    
-        if (!response.ok) {
-          const error = await response.json();
-          // Return error code that can be translated
-          if (error.message) {
-            throw new Error(error.message);
-          } else if (response.status === 401) {
-            throw new Error('INVALID_CREDENTIALS');
-          } else if (response.status >= 500) {
-            throw new Error('SERVER_ERROR');
-          } else {
-            throw new Error('LOGIN_FAILED');
-          }
-        }
-    
-        return response.json();
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    const row = await userService.getUserByUsername(credentials.username);
+    if (!row) {
+      throw new Error('INVALID_CREDENTIALS');
+    }
+
+    const valid = await verifyPassword(credentials.password, row.password_hash);
+    if (!valid) {
+      throw new Error('INVALID_CREDENTIALS');
+    }
+
+    const warehouses = Array.isArray(row.warehouses) ? row.warehouses : [];
+    const user = {
+      id: row.id,
+      username: row.username,
+      fullName: row.full_name,
+      email: row.email,
+      company: row.company_name ?? '',
+      branch: row.branch ?? '',
+      companyId: row.company_id ?? '',
+      warehouses: warehouses.map((w: unknown) =>
+        typeof w === 'object' && w !== null && 'address' in (w as object)
+          ? { address: (w as { address?: string }).address }
+          : { address: String(w) }
+      ),
+      role: (row.role === 'admin' ? 'admin' : 'manager') as UserRole,
+    };
+
+    const token = `sb-${row.id}-${Date.now()}`;
+    return { token, user };
   },
 
   async validateToken(token: string): Promise<boolean> {
-    // For development: Always return true for mock tokens
-    if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-      return token.startsWith('mock-token-');
-    }
-    
-    // Production: Validate token with backend
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/validate`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    // Client-side app: trust locally stored SB tokens so refresh / new tabs stay logged in
+    return !!token && token.startsWith('sb-');
   },
 
-  // Token storage helpers
   getStoredToken(): string | null {
-    // Check localStorage first (remember me), then sessionStorage
     return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
   },
 
@@ -128,7 +91,6 @@ export const authService = {
   },
 
   storeAuth(token: string, user: AuthResponse['user'], rememberMe: boolean): void {
-    // Always use localStorage so new tabs (cart, product details) can restore session
     localStorage.setItem('authToken', token);
     localStorage.setItem('userSession', JSON.stringify(user));
     if (rememberMe) {
@@ -142,14 +104,19 @@ export const authService = {
     return localStorage.getItem('rememberMe') === 'true';
   },
 
-  /** Save token and user to localStorage so new tabs can restore session. Call with no args to copy from sessionStorage (e.g. before opening a new tab). */
   persistSessionToLocalStorage(token?: string, user?: AuthResponse['user']): void {
     const t = token ?? sessionStorage.getItem('authToken');
-    const u = user ?? (() => {
-      const s = sessionStorage.getItem('userSession');
-      if (!s) return null;
-      try { return JSON.parse(s) as AuthResponse['user']; } catch { return null; }
-    })();
+    const u =
+      user ??
+      (() => {
+        const s = sessionStorage.getItem('userSession');
+        if (!s) return null;
+        try {
+          return JSON.parse(s) as AuthResponse['user'];
+        } catch {
+          return null;
+        }
+      })();
     if (t && u) {
       localStorage.setItem('authToken', t);
       localStorage.setItem('userSession', JSON.stringify(u));

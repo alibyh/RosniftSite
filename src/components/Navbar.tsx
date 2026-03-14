@@ -24,6 +24,7 @@ import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import logo from "../assets/Rosneft_logo.svg";
 import { useChart } from "../contexts/ChartContext";
+import { useChat } from "../contexts/ChatContext";
 import { authService } from "../services/authService";
 import "./Navbar.css";
 
@@ -32,6 +33,7 @@ const Navbar: React.FC = () => {
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
   const { items: chartItems } = useChart();
+  const { toggleChat, unreadCount } = useChat();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -53,8 +55,7 @@ const Navbar: React.FC = () => {
   };
 
   const handleChatClick = () => {
-    // TODO: Add chat functionality
-    console.log("Chat clicked");
+    toggleChat();
   };
 
   const handleChartClick = () => {
@@ -94,7 +95,9 @@ const Navbar: React.FC = () => {
                   onClick={handleChatClick}
                   aria-label="chat"
                 >
-                  <ChatBubbleOutlineIcon className="navbar-icon" />
+                  <Badge badgeContent={unreadCount > 0 ? unreadCount : null} color="error">
+                    <ChatBubbleOutlineIcon className="navbar-icon" />
+                  </Badge>
                 </IconButton>
                 <IconButton
                   className="navbar-icon-button"

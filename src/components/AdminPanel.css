@@ -159,7 +159,7 @@
   border: 1px solid #4caf50 !important;
 }
 
-/* Dialog Styles */
+/* Dialog Styles - force white text and readable borders */
 .admin-dialog .MuiDialogTitle-root {
   color: #FED208 !important;
   background-color: #1a1a1a !important;
@@ -175,56 +175,53 @@
   border-top: 1px solid rgba(254, 210, 8, 0.2);
 }
 
-.admin-dialog .MuiTextField-root .MuiInputLabel-root {
-  color: #aaa !important;
+/* All inputs: white text and visible borders */
+.admin-dialog .MuiInputLabel-root {
+  color: rgba(255, 255, 255, 0.9) !important;
 }
 
-.admin-dialog .MuiTextField-root .MuiInputLabel-root.Mui-focused {
-  color: #FED208 !important;
-}
-
-.admin-dialog .MuiTextField-root .MuiOutlinedInput-root {
+.admin-dialog .MuiInputLabel-root.Mui-focused,
+.admin-dialog .MuiInputLabel-root.MuiInputLabel-shrink {
   color: #fff !important;
 }
 
-.admin-dialog .MuiTextField-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
-  border-color: rgba(254, 210, 8, 0.3) !important;
-}
-
-.admin-dialog .MuiTextField-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
-  border-color: #FED208 !important;
-}
-
-.admin-dialog .MuiTextField-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
-  border-color: #FED208 !important;
-}
-
-.admin-dialog .MuiFormControl-root .MuiInputLabel-root {
-  color: #aaa !important;
-}
-
-.admin-dialog .MuiFormControl-root .MuiInputLabel-root.Mui-focused {
-  color: #FED208 !important;
-}
-
-.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root {
+.admin-dialog .MuiOutlinedInput-root {
   color: #fff !important;
 }
 
-.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
-  border-color: rgba(254, 210, 8, 0.3) !important;
-}
-
-.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
-  border-color: #FED208 !important;
-}
-
-.admin-dialog .MuiFormControl-root .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
-  border-color: #FED208 !important;
-}
-
-.admin-dialog .MuiSelect-select {
+.admin-dialog .MuiOutlinedInput-root input,
+.admin-dialog .MuiOutlinedInput-root .MuiSelect-select,
+.admin-dialog .MuiInputBase-input {
   color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.admin-dialog .MuiOutlinedInput-root fieldset,
+.admin-dialog .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.admin-dialog .MuiOutlinedInput-root:hover fieldset,
+.admin-dialog .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #fff !important;
+}
+
+.admin-dialog .MuiOutlinedInput-root.Mui-focused fieldset,
+.admin-dialog .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #FED208 !important;
+  border-width: 1px !important;
+}
+
+.admin-dialog .MuiSelect-icon {
+  color: #fff !important;
+}
+
+.admin-dialog .MuiFormHelperText-root {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.admin-dialog .MuiMenuItem-root {
+  color: #333 !important;
 }
 
 .admin-save-button {

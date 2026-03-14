@@ -31,9 +31,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import { MockUser } from '../features/auth/data/mockUsers';
 import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
-import { userService, UserFormData } from '../services/userService';
+import { userService, type AppUser, type UserFormData, type UserRole } from '../services/userService';
 import {
   deliveryRatesService,
   DeliveryRate,
@@ -78,7 +77,7 @@ function TabPanel({ children, value, index, ...other }: TabPanelProps) {
 const AdminPanel: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [products, setProducts] = useState<MappedInventoryRow[]>([]);
-  const [users, setUsers] = useState<MockUser[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingProfitForBe, setSavingProfitForBe] = useState<string | null>(null);
@@ -87,7 +86,7 @@ const AdminPanel: React.FC = () => {
   const [profitFilterCompany, setProfitFilterCompany] = useState('');
 
   const [userDialogOpen, setUserDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<MockUser | null>(null);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [userFormData, setUserFormData] = useState<Partial<UserFormData>>({});
 
   const [ratesRows, setRatesRows] = useState<DeliveryRate[]>([]);
@@ -156,7 +155,12 @@ const AdminPanel: React.FC = () => {
       setProducts(inventoryData);
       setUsers(usersData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
+      const msg = err instanceof Error ? err.message : 'Ошибка загрузки данных';
+      setError(
+        msg.includes('app_users') || msg.includes('RLS') || msg.includes('policy')
+          ? `${msg} Выполните миграцию в Supabase: supabase/migrations/20250309_app_users.sql`
+          : msg
+      );
     } finally {
       setLoading(false);
     }
@@ -216,17 +220,18 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleEditUser = (user: MockUser) => {
+  const handleEditUser = (user: AppUser) => {
     setEditingUser(user);
     setUserFormData({
       username: user.username,
       fullName: user.fullName,
       password: '',
+      balanceUnit: user.balanceUnit ?? '',
       company: user.company,
       branch: user.branch,
-      companyId: user.companyId,
+      companyId: user.companyId ?? user.balanceUnit ?? '',
       email: user.email,
-      warehouses: user.warehouses,
+      warehouses: user.warehouses.map((w) => ({ address: typeof w === 'string' ? w : w?.address ?? '' })),
       role: user.role,
     });
     setUserDialogOpen(true);
@@ -248,12 +253,13 @@ const AdminPanel: React.FC = () => {
       username: '',
       fullName: '',
       password: '',
+      balanceUnit: '',
       company: '',
       branch: '',
       companyId: '',
       email: '',
       warehouses: [],
-      role: 'user',
+      role: 'manager',
     });
     setUserDialogOpen(true);
   };
@@ -463,9 +469,7 @@ const AdminPanel: React.FC = () => {
                           label={
                             user.role === 'admin'
                               ? 'Администратор'
-                              : user.role === 'manager'
-                                ? 'Менеджер'
-                                : 'Пользователь'
+                              : 'Менеджер'
                           }
                           size="small"
                           className={`admin-role-chip admin-role-${user.role}`}
@@ -582,6 +586,17 @@ const AdminPanel: React.FC = () => {
                 fullWidth
                 margin="normal"
                 required
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: '#fff' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                }}
               />
               <TextField
                 label="Полное имя"
@@ -590,6 +605,17 @@ const AdminPanel: React.FC = () => {
                 fullWidth
                 margin="normal"
                 required
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: '#fff' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                }}
               />
               <TextField
                 label="Email"
@@ -599,6 +625,17 @@ const AdminPanel: React.FC = () => {
                 fullWidth
                 margin="normal"
                 required
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: '#fff' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                }}
               />
               <TextField
                 label="Пароль"
@@ -608,34 +645,105 @@ const AdminPanel: React.FC = () => {
                 fullWidth
                 margin="normal"
                 required={!editingUser}
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: '#fff' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                }}
               />
+              <FormControl
+                fullWidth
+                margin="normal"
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: '#fff' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                  '& .MuiSelect-icon': { color: '#fff' },
+                }}
+              >
+                <InputLabel>БЕ</InputLabel>
+                <Select
+                  value={userFormData.companyId ?? ''}
+                  onChange={(e) => {
+                    const be = e.target.value;
+                    const row = profitRows.find((r) => r.be === be);
+                    setUserFormData({
+                      ...userFormData,
+                      companyId: be,
+                      company: row?.companyName ?? '',
+                    });
+                  }}
+                  label="БЕ"
+                >
+                  <MenuItem value="">
+                    <em>— Не выбрано</em>
+                  </MenuItem>
+                  {profitRows.map((row) => (
+                    <MenuItem key={row.be} value={row.be}>
+                      {row.be} — {row.companyName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <TextField
                 label="Компания"
                 value={userFormData.company || ''}
-                onChange={(e) => setUserFormData({ ...userFormData, company: e.target.value })}
                 fullWidth
                 margin="normal"
+                disabled
+                size="small"
+                helperText="Заполняется автоматически при выборе БЕ"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: '#fff' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                  '& .MuiFormHelperText-root': { color: 'rgba(255,255,255,0.7)' },
+                }}
               />
-              <TextField
-                label="ID компании"
-                value={userFormData.companyId || ''}
-                onChange={(e) => setUserFormData({ ...userFormData, companyId: e.target.value })}
+              <FormControl
                 fullWidth
                 margin="normal"
-              />
-              <FormControl fullWidth margin="normal">
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: '#fff' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.75)' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                  '& .MuiSelect-icon': { color: '#fff' },
+                }}
+              >
                 <InputLabel>Роль</InputLabel>
                 <Select
-                  value={userFormData.role || 'user'}
+                  value={userFormData.role || 'manager'}
                   onChange={(e) =>
                     setUserFormData({
                       ...userFormData,
-                      role: e.target.value as 'admin' | 'user' | 'manager',
+                      role: e.target.value as UserRole,
                     })
                   }
                   label="Роль"
                 >
-                  <MenuItem value="user">Пользователь</MenuItem>
                   <MenuItem value="manager">Менеджер</MenuItem>
                   <MenuItem value="admin">Администратор</MenuItem>
                 </Select>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Container,
   Paper,
@@ -23,12 +24,15 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import { useChart } from '../contexts/ChartContext';
+import { useChat } from '../contexts/ChatContext';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { geocodeAddress, getRouteWithWaypoints } from '../services/mapboxService';
+import { inventoryService } from '../services/inventoryService';
+import { orderService, mapCartItemsToOrderPayload } from '../services/orderService';
 import { parseDecimalStr, sanitizeQuantityInput, formatForDisplay } from '../utils/numberUtils';
 import { legDeliveryCostRub, effectiveWeightTons, getDeliveryRate } from '../utils/deliveryCalculation';
 import { useDeliveryRates } from '../contexts/DeliveryRatesContext';
@@ -43,7 +47,8 @@ const parsePrice = (str: string): number => {
 const Cart: React.FC = () => {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.auth.user);
-  const { items, updateQuantity, updateTons, removeFromChart } = useChart();
+  const { items, updateQuantity, updateTons, removeFromChart, clearChart } = useChart();
+  const { openConversation } = useChat();
   const { rates } = useDeliveryRates();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -61,16 +66,57 @@ const Cart: React.FC = () => {
     ).filter((a) => a?.trim());
   }, [user?.warehouses]);
 
+  const [inventoryWarehouses, setInventoryWarehouses] = useState<string[]>([]);
+  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
+
+  const deliveryWarehouseOptions = useMemo(() => {
+    if (userWarehouseAddresses.length > 0) return userWarehouseAddresses;
+    return inventoryWarehouses;
+  }, [userWarehouseAddresses, inventoryWarehouses]);
+
   const [selectedDestination, setSelectedDestination] = useState<string>('');
   const destinationAddress = selectedDestination?.trim() || null;
   const [qtyEditing, setQtyEditing] = useState<{ id: string; value: string } | null>(null);
   const [tonsEditing, setTonsEditing] = useState<{ id: string; value: string } | null>(null);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userWarehouseAddresses.length > 0 && !selectedDestination) {
-      setSelectedDestination(userWarehouseAddresses[0]);
+    if (userWarehouseAddresses.length > 0) {
+      if (!selectedDestination || !userWarehouseAddresses.includes(selectedDestination)) {
+        setSelectedDestination(userWarehouseAddresses[0]);
+      }
     }
   }, [userWarehouseAddresses, selectedDestination]);
+
+  useEffect(() => {
+    if (inventoryWarehouses.length > 0 && (!selectedDestination || !inventoryWarehouses.includes(selectedDestination))) {
+      setSelectedDestination(inventoryWarehouses[0]);
+    }
+  }, [inventoryWarehouses]);
+
+  useEffect(() => {
+    if (userWarehouseAddresses.length > 0) {
+      setInventoryWarehouses([]);
+      return;
+    }
+    const companyId = (user as { companyId?: string })?.companyId?.trim();
+    if (!companyId) {
+      setInventoryWarehouses([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingWarehouses(true);
+    inventoryService.getWarehouseAddressesByCompanyId(companyId).then((addrs) => {
+      if (!cancelled) {
+        setInventoryWarehouses(addrs);
+        setSelectedDestination((prev) => (prev ? prev : addrs[0] ?? ''));
+      }
+      setLoadingWarehouses(false);
+    });
+    return () => { cancelled = true; };
+  }, [user?.companyId, userWarehouseAddresses.length]);
 
   // Initialize warehouse order from cart items only (no destination)
   useEffect(() => {
@@ -125,7 +171,7 @@ const Cart: React.FC = () => {
     [routeLegCosts]
   );
 
-  // Initialize map
+  // Initialize Mapbox map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -253,6 +299,66 @@ const Cart: React.FC = () => {
       return arr;
     });
     setDraggedIndex(null);
+  };
+
+  const handleSubmitOrder = async () => {
+    if (!user) {
+      setSubmitError('Пользователь не найден');
+      return;
+    }
+    if (!destinationAddress) {
+      setSubmitError('Выберите склад назначения');
+      return;
+    }
+    if (!user.email?.trim()) {
+      setSubmitError('В профиле отсутствует email. Выйдите из учётной записи и войдите снова.');
+      return;
+    }
+
+    try {
+      setSubmittingOrder(true);
+      setSubmitError(null);
+      setSubmitSuccess(null);
+
+      const payloadItems = mapCartItemsToOrderPayload(items);
+      const result = await orderService.submitOrder({
+        requester: {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email || '',
+          companyId: user.companyId || '',
+          companyName: user.company || '',
+        },
+        destinationWarehouse: destinationAddress,
+        items: payloadItems,
+      });
+
+      const skippedText =
+        result.skipped.length > 0
+          ? ` Не отправлено для ${result.skipped.map((s) => s.balanceUnit).join(', ')}.`
+          : '';
+
+      setSubmitSuccess(`Заявка отправлена. Писем: ${result.sentCount}.${skippedText}`);
+
+      // Open a chat conversation: company id, company name, product1_kcm, product2_kcm...
+      const buyerCompanyId = user.companyId || '';
+      const companyName = user.company || '';
+      const productKcms = items.map((item) => item.row.materialCode || '').filter(Boolean);
+      const sellerCompanyIds = [...new Set(items.map((item) => item.row.balanceUnit || '').filter(Boolean))];
+      const participantCompanyIds = [
+        ...new Set([buyerCompanyId, ...sellerCompanyIds].filter(Boolean)),
+      ];
+      const conversationTitle = [buyerCompanyId, companyName, ...productKcms].join(', ');
+      if (conversationTitle && participantCompanyIds.length > 0) {
+        openConversation(conversationTitle, participantCompanyIds);
+      }
+
+      clearChart();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Ошибка отправки заявки');
+    } finally {
+      setSubmittingOrder(false);
+    }
   };
 
   if (items.length === 0) {
@@ -497,8 +603,10 @@ const Cart: React.FC = () => {
                       label="Выберите склад"
                       className="product-details-select"
                     >
-                      {userWarehouseAddresses.length > 0 ? (
-                        userWarehouseAddresses.map((addr, index) => (
+                      {loadingWarehouses ? (
+                        <MenuItem value="">Загрузка складов...</MenuItem>
+                      ) : deliveryWarehouseOptions.length > 0 ? (
+                        deliveryWarehouseOptions.map((addr, index) => (
                           <MenuItem key={index} value={addr}>
                             {addr}
                           </MenuItem>
@@ -534,6 +642,16 @@ const Cart: React.FC = () => {
               Итого
             </Typography>
             <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)', my: 2 }} />
+            {submitError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {submitError}
+              </Alert>
+            )}
+            {submitSuccess && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {submitSuccess}
+              </Alert>
+            )}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography sx={{ color: '#fff' }}>Стоимость товаров:</Typography>
@@ -551,8 +669,15 @@ const Cart: React.FC = () => {
                 </Typography>
               </Box>
             </Box>
-            <Button variant="contained" fullWidth className="product-details-order-button" sx={{ mt: 3 }}>
-              Оформить заказ
+            <Button
+              variant="contained"
+              fullWidth
+              className="product-details-order-button"
+              sx={{ mt: 3 }}
+              onClick={handleSubmitOrder}
+              disabled={submittingOrder || !destinationAddress}
+            >
+              {submittingOrder ? 'Отправка...' : 'Оформить заказ'}
             </Button>
           </Paper>
         </Box>

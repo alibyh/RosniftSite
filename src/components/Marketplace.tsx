@@ -78,7 +78,9 @@ const Marketplace: React.FC = () => {
     materialName: 380,
     unit: 160,
     quantity: 140,
-    cost: 180,
+    unitPrice: 160,
+    profitability: 150,
+    cost: 200,
     chartActions: 200,
   });
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
@@ -118,7 +120,7 @@ const Marketplace: React.FC = () => {
     }
   }, []);
 
-  const columns = [
+  const warehouseColumns = [
     { key: 'balanceUnit', label: 'БЕ', field: 'balanceUnit' },
     { key: 'companyName', label: 'Наименование общества', field: 'companyName' },
     { key: 'receiptDate', label: 'Дата поступления', field: 'receiptDate' },
@@ -134,6 +136,24 @@ const Marketplace: React.FC = () => {
     { key: 'cost', label: 'Стоимость, руб', field: 'cost' },
   ];
 
+  const myInventoryColumns = [
+    { key: 'receiptDate', label: 'Дата поступления', field: 'receiptDate' },
+    { key: 'warehouseAddress', label: 'Адрес склада', field: 'warehouseAddress' },
+    { key: 'materialClass', label: 'Класс МТР', field: 'materialClass' },
+    { key: 'className', label: 'Наименование класса', field: 'className' },
+    { key: 'materialSubclass', label: 'Подкласс МТР', field: 'materialSubclass' },
+    { key: 'subclassName', label: 'Наименование подкласса', field: 'subclassName' },
+    { key: 'materialCode', label: 'Код материала', field: 'materialCode' },
+    { key: 'materialName', label: 'Наименование материала', field: 'materialName' },
+    { key: 'unit', label: 'Ед. измерения', field: 'unit' },
+    { key: 'quantity', label: 'Количество', field: 'quantity' },
+    { key: 'unitPrice', label: 'Цена запаса, руб', field: 'unitPrice' },
+    { key: 'profitability', label: 'Рентабельность, %', field: 'profitability' },
+    { key: 'cost', label: 'Стоимость запасов, руб', field: 'cost' },
+  ];
+
+  const columns = tabIndex === 1 ? myInventoryColumns : warehouseColumns;
+
   const tableWidth = useMemo(
     () => columns.reduce((sum, c) => sum + (columnWidths[c.key] ?? 0), 0),
     [columnWidths, columns]
@@ -147,10 +167,20 @@ const Marketplace: React.FC = () => {
   const dataForTab = useMemo(() => {
     if (!user) return data;
     if (tabIndex === 1) {
-      // Мои запасы: filter by companyId only
-      return user.companyId
+      const myRows = user.companyId
         ? data.filter((row) => row.balanceUnit === user.companyId)
         : [];
+      // Replace cost with calculated value: Количество × Цена запаса × (1 + Рентабельность/100)
+      return myRows.map((row) => {
+        const qty = parseDecimalStr(row.quantity) || 0;
+        const price = parseDecimalStr(row.unitPrice) || 0;
+        const profitPct = parseDecimalStr(row.profitability) || 0;
+        const computed = qty * price * (1 + profitPct / 100);
+        return {
+          ...row,
+          cost: computed > 0 ? String(computed) : '',
+        };
+      });
     }
     // Складские запасы: exclude user's (by companyId and by warehouse)
     const userWarehouseAddresses = (user.warehouses || []).map((wh: string | { address?: string }) =>
@@ -210,8 +240,8 @@ const Marketplace: React.FC = () => {
         const aValue = (a as any)[sortColumn];
         const bValue = (b as any)[sortColumn];
 
-        // Handle numeric values (quantity, cost)
-        if (sortColumn === 'quantity' || sortColumn === 'cost') {
+        // Handle numeric values
+        if (sortColumn === 'quantity' || sortColumn === 'cost' || sortColumn === 'unitPrice' || sortColumn === 'profitability') {
           const aNum = parseDecimalStr(aValue ?? '') || 0;
           const bNum = parseDecimalStr(bValue ?? '') || 0;
           return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
@@ -451,20 +481,24 @@ const Marketplace: React.FC = () => {
               </DialogTitle>
               <DialogContent sx={{ pt: 2 }}>
                 <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}>
-                  <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ color: '#FED208', fontWeight: 600, mb: 1.5 }}>
                     БЕ и Наименование дочернего Общества
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'baseline' }}>
                     <Box>
-                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>БЕ</Typography>
-                      <Typography sx={{ color: '#fff', fontWeight: 500 }}>{uploadPreview.be || '-'}</Typography>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block' }}>
+                        БЕ
+                      </Typography>
+                      <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>
+                        {uploadPreview.be || '—'}
+                      </Typography>
                     </Box>
-                    <Box>
-                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                    <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block' }}>
                         Наименование дочернего Общества
                       </Typography>
-                      <Typography sx={{ color: '#fff', fontWeight: 500 }} noWrap title={uploadPreview.companyName}>
-                        {uploadPreview.companyName || '-'}
+                      <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }} noWrap title={uploadPreview.companyName || ''}>
+                        {uploadPreview.companyName || '—'}
                       </Typography>
                     </Box>
                   </Box>
@@ -530,13 +564,25 @@ const Marketplace: React.FC = () => {
                     <TableBody>
                       {uploadPreview.rows.slice(0, 50).map((row, idx) => (
                         <TableRow key={idx}>
-                          {uploadPreview.columns.map((col) => (
-                            <TableCell key={col} sx={{ color: 'black' }}>
-                              {(col === 'Количество' || col === 'Стоимость запасов')
-                                ? formatNumber(row[col] ?? '')
-                                : String(row[col] ?? '-')}
-                            </TableCell>
-                          ))}
+                          {uploadPreview.columns.map((col) => {
+                            let display: string;
+                            if (col === 'Стоимость запасов') {
+                              const qty = parseDecimalStr(String(row['Количество'] ?? '')) || 0;
+                              const price = parseDecimalStr(String(row['Цена запаса'] ?? '')) || 0;
+                              const profitPct = parseDecimalStr(String(row['Рентабельность'] ?? userSpecifiedProfitability ?? '')) || 0;
+                              const computed = qty * price * (1 + profitPct / 100);
+                              display = computed > 0 ? formatNumber(computed) : '—';
+                            } else if (col === 'Количество' || col === 'Цена запаса' || col === 'Рентабельность') {
+                              display = formatNumber(row[col] ?? '');
+                            } else {
+                              display = String(row[col] ?? '-');
+                            }
+                            return (
+                              <TableCell key={col} sx={{ color: 'black' }}>
+                                {display}
+                              </TableCell>
+                            );
+                          })}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -580,9 +626,6 @@ const Marketplace: React.FC = () => {
               border: '1px solid rgba(254,210,8,0.3)',
             }}
           >
-            <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1.5 }}>
-              Рентабельность по БЕ
-            </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3 }}>
               <Box>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>БЕ</Typography>
@@ -596,14 +639,6 @@ const Marketplace: React.FC = () => {
                 </Typography>
                 <Typography sx={{ color: '#fff', fontWeight: 500 }} noWrap title={dataForTab[0]?.companyName}>
                   {dataForTab[0]?.companyName || '-'}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block', mb: 0.5 }}>
-                  Рентабельность, %
-                </Typography>
-                <Typography sx={{ color: '#fff', fontWeight: 500 }}>
-                  {dataForTab[0]?.profitability ?? '—'}
                 </Typography>
               </Box>
             </Box>
@@ -746,7 +781,7 @@ const Marketplace: React.FC = () => {
                         value={filterValue}
                         onChange={(_e, newValue) => handleColumnFilterChange(column.key, newValue ?? '')}
                         getOptionLabel={(opt) =>
-                          (column.key === 'quantity' || column.key === 'cost') ? formatNumber(opt) : String(opt)
+                          (column.key === 'quantity' || column.key === 'cost' || column.key === 'unitPrice') ? formatNumber(opt) : String(opt)
                         }
                         renderInput={(params) => (
                           <TextField {...params} placeholder="Все" />
@@ -785,7 +820,8 @@ const Marketplace: React.FC = () => {
                       {columns.map((column) => {
                         const rawValue = (row as any)[column.field] ?? '';
                         const value = rawValue === '' || rawValue == null ? '-' : rawValue;
-                        const displayValue = (column.key === 'quantity' || column.key === 'cost')
+                        const isNumericCol = column.key === 'quantity' || column.key === 'cost' || column.key === 'unitPrice';
+                        const displayValue = isNumericCol
                           ? formatNumber(value)
                           : value;
                         const isBalanceUnit = column.key === 'balanceUnit';

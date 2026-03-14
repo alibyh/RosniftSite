@@ -22,7 +22,7 @@ export interface InventoryRow {
   'Цена запаса': string | null;
 }
 
-// Mapped interface for UI (Цена запаса hidden; profitability shown only in Мои запасы)
+// Mapped interface for UI
 export interface MappedInventoryRow {
   id: string;
   balanceUnit: string;
@@ -37,8 +37,10 @@ export interface MappedInventoryRow {
   materialName: string;
   unit: string;
   quantity: string;
+  /** Цена за единицу (Цена запаса) — used in Мои запасы to compute Стоимость запасов */
+  unitPrice: string;
   cost: string;
-  /** Плановая рентабельность - shown and editable in Мои запасы tab */
+  /** Плановая рентабельность — set by admin, shown in Мои запасы tab */
   profitability: string;
 }
 
@@ -57,6 +59,7 @@ const mapInventoryRow = (row: InventoryRow): MappedInventoryRow => {
     materialName: row['Наименование материала'] || '',
     unit: row['БЕИ (единица измерения)'] || '',
     quantity: row.Количество ?? '',
+    unitPrice: row['Цена запаса'] ?? '',
     cost: row['Стоимость запасов'] ?? '',
     profitability: row['Рентабельность'] != null ? String(row['Рентабельность']) : '',
   };
@@ -107,6 +110,34 @@ export const inventoryService = {
     } catch (error) {
       console.error('Error in getInventoryById:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Get distinct warehouse addresses for a company (by БЕ / company_id).
+   * Used in Cart when the user has no warehouses set on their profile.
+   * Uses select('*') to avoid PostgREST column-name-with-space issues.
+   */
+  async getWarehouseAddressesByCompanyId(companyId: string): Promise<string[]> {
+    if (!companyId?.trim()) return [];
+    try {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('*')
+        .eq('БЕ', companyId.trim());
+
+      if (error) {
+        console.error('Error fetching warehouse addresses:', error);
+        return [];
+      }
+      const set = new Set<string>();
+      (data ?? []).forEach((row: Record<string, unknown>) => {
+        const addr = (row['Адрес склада'] as string | null)?.trim();
+        if (addr) set.add(addr);
+      });
+      return Array.from(set);
+    } catch {
+      return [];
     }
   },
 
@@ -273,9 +304,8 @@ export const inventoryService = {
     }
     const allSameProfit = profitValues.length <= 1;
 
+    // Table columns: exclude БЕ and Наименование дочернего Общества (shown at top). Include Цена запаса, Рентабельность; Стоимость запасов is calculated in UI.
     const displayCols = [
-      'БЕ',
-      'Наименование дочернего Общества',
       'Дата поступления',
       'Адрес склада',
       'Классы МТР',
@@ -286,11 +316,11 @@ export const inventoryService = {
       'Наименование материала',
       'БЕИ (единица измерения)',
       'Количество',
+      'Цена запаса',
+      'Рентабельность',
       'Стоимость запасов',
     ];
     const colMap: Record<string, string[]> = {
-      БЕ: ['БЕ', 'БЕ (балансовая единица) держателя запаса'],
-      'Наименование дочернего Общества': ['Наименование дочернего Общества', "Наименование дочернего Общества'"],
       'Дата поступления': ['Дата поступления'],
       'Адрес склада': ['Адрес склада'],
       'Классы МТР': ['Классы МТР', 'Классы МТР '],
@@ -301,7 +331,12 @@ export const inventoryService = {
       'Наименование материала': ['Наименование материала'],
       'БЕИ (единица измерения)': ['БЕИ (единица измерения)'],
       Количество: ['Количество'],
-      'Стоимость запасов': ['Стоимость запасов', 'Стоимость запасов , руб (за весь объем в столбце "количество")'],
+      'Цена запаса': ['Цена запаса', 'Цена запаса, руб (показывается во вкладке "Мои запасы")'],
+      'Рентабельность': ['Рентабельность', 'Плановая рентабельность', 'Плановая рентабельность ', 'Рентабельность (на сайте НЕ показывать)'],
+      'Стоимость запасов': [], // calculated in UI: Количество * Цена запаса * (1 + Рентабельность/100)
+      // Used only for top-of-dialog display (not in table):
+      БЕ: ['БЕ', 'БЕ (балансовая единица) держателя запаса'],
+      'Наименование дочернего Общества': ['Наименование дочернего Общества', "Наименование дочернего Общества'"],
     };
 
     const rows = parsed.data
@@ -309,6 +344,10 @@ export const inventoryService = {
       .map((row) => {
         const obj: Record<string, string | number | null> = {};
         displayCols.forEach((col) => {
+          if (col === 'Стоимость запасов') {
+            obj[col] = null; // computed in UI
+            return;
+          }
           const val = getCol(row, colMap[col] || [col]);
           if (col === 'Классы МТР' || col === 'КСМ (код материала)') {
             obj[col] = val ? parseInt(val, 10) || null : null;

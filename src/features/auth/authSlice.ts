@@ -5,11 +5,12 @@ interface User {
   id: string;
   username: string;
   fullName: string;
+  email: string;
   company: string;
   branch?: string;
   companyId: string;
   warehouses: Array<{ id?: string; address?: string } | string>;
-  role: 'admin' | 'user' | 'manager';
+  role: 'admin' | 'manager';
 }
 
 interface AuthState {
