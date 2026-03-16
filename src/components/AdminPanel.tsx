@@ -506,7 +506,7 @@ const AdminPanel: React.FC = () => {
 
           <TabPanel value={tabValue} index={2}>
             <Box className="admin-section-header">
-              <Typography variant="h6">Тарифы доставки (ставки за 1 т·км)</Typography>
+              <Typography variant="h6">Тарифы доставки</Typography>
             </Box>
             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
               Редактируйте ставки для расчёта стоимости доставки в корзине.

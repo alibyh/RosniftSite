@@ -1,11 +1,9 @@
 export function sanitizeQuantityInput(value: string): string {
-  // Allow digits and at most one decimal separator (either comma or dot).
-  let s = value.replace(/[^\d.,]/g, '');
-  const firstSepIndex = s.search(/[.,]/);
-  if (firstSepIndex !== -1) {
-    const before = s.slice(0, firstSepIndex + 1);
-    const after = s.slice(firstSepIndex + 1).replace(/[.,]/g, '');
-    s = before + after;
+  // Allow only digits and at most one comma as decimal separator.
+  let s = value.replace(/[^\d,]/g, '');
+  const parts = s.split(',');
+  if (parts.length > 2) {
+    s = parts[0] + ',' + parts.slice(1).join('');
   }
   return s;
 }
