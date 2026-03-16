@@ -39,6 +39,13 @@ function formatMoney(value: number): string {
   }).format(value);
 }
 
+// Insert zero‑width spaces between characters to prevent auto‑linking in some mail clients,
+// while still rendering as a normal-looking number.
+function breakAutoLink(value: string): string {
+  if (!value) return '';
+  return value.split('').join('&#8203;');
+}
+
 function buildMessageForCompany(
   balanceUnit: string,
   companyName: string,
@@ -50,7 +57,7 @@ function buildMessageForCompany(
       [
         item.materialCode || '-',
         item.materialName || '-',
-        `${item.quantity} ${item.unit || ''}`.trim(),
+        String(item.quantity),
         `${formatMoney(item.costRub)} руб.`,
         item.warehouseAddress || '-',
       ].join('\n')
@@ -64,11 +71,7 @@ function buildMessageForCompany(
     '',
     'Необходимо подтверждение наличия запрашиваемых МПЗ.',
     '',
-    `Адрес назначения: ${payload.destinationWarehouse || '-'}`,
-    '',
     `Заказчик - БЕ ${payload.requester.companyId || '-'}, ${payload.requester.companyName || '-'}. Ответственный - ${payload.requester.fullName || '-'}, e-mail ${payload.requester.email || '-'}.`,
-    '',
-    `БЕ поставщика - ${balanceUnit || '-'}, ${companyName || '-'}.\n`,
   ].join('\n');
 }
 
@@ -80,13 +83,15 @@ function buildHtmlMessageForCompany(
 ): string {
   const rowsHtml = items
     .map((item) => {
-      const qtyWithUnit = `${item.quantity} ${item.unit || ''}`.trim();
+      const qtyOnly = String(item.quantity);
       const price = `${formatMoney(item.costRub)} руб.`;
       return `
         <tr>
-          <td style="border:1px solid #444;padding:10px 12px;">${item.materialCode || '-'}</td>
+          <td style="border:1px solid #444;padding:10px 12px;">${
+            item.materialCode ? breakAutoLink(item.materialCode) : '-'
+          }</td>
           <td style="border:1px solid #444;padding:10px 12px;">${item.materialName || '-'}</td>
-          <td style="border:1px solid #444;padding:10px 12px;">${qtyWithUnit}</td>
+          <td style="border:1px solid #444;padding:10px 12px;">${qtyOnly}</td>
           <td style="border:1px solid #444;padding:10px 12px;">${price}</td>
           <td style="border:1px solid #444;padding:10px 12px;">${item.warehouseAddress || '-'}</td>
         </tr>
@@ -121,7 +126,7 @@ function buildHtmlMessageForCompany(
           <tr>
             <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">КОД КСМ</th>
             <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Наименование материала</th>
-            <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Количество + ЕИ</th>
+            <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Количество</th>
             <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Стоимость с учетом рентабельности, руб.</th>
             <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Адрес склада</th>
           </tr>
