@@ -77,7 +77,7 @@ function buildMessageForCompany(
 
 function buildHtmlMessageForCompany(
   _balanceUnit: string,
-  companyName: string,
+  _companyName: string,
   items: OrderItem[],
   payload: Payload
 ): string {
@@ -99,7 +99,6 @@ function buildHtmlMessageForCompany(
     })
     .join('');
 
-  const _destination = payload.destinationWarehouse || '-';
   const requesterCompanyId = payload.requester.companyId || '-';
   const requesterCompanyName = payload.requester.companyName || '-';
   const requesterName = payload.requester.fullName || '-';
