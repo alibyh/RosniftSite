@@ -140,19 +140,11 @@ function buildHtmlMessageForCompany(
         Необходимо подтверждение наличия запрашиваемых МПЗ.
       </p>
 
-      <p style="margin:0 0 4px 0;color:#e0e0e0;font-size:13px;line-height:1.5;">
-        <strong>Адрес назначения (куда):</strong> ${destination}
-      </p>
-
       <p style="margin:8px 0 4px 0;color:#e0e0e0;font-size:13px;line-height:1.5;">
         <strong>Заказчик – БЕ:</strong> ${requesterCompanyId}, ${requesterCompanyName}
       </p>
       <p style="margin:0 0 4px 0;color:#e0e0e0;font-size:13px;line-height:1.5;">
         <strong>Ответственный:</strong> ${requesterName}, e-mail ${requesterEmail}
-      </p>
-
-      <p style="margin:8px 0 0 0;color:#9e9e9e;font-size:12px;line-height:1.5;">
-        БЕ поставщика – ${balanceUnit || '-'}, ${companyName || '-'}.
       </p>
     </div>
   </body>
