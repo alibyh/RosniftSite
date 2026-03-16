@@ -24,8 +24,16 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import { useChart } from '../contexts/ChartContext';
+import { useChart, ChartItem } from '../contexts/ChartContext';
 import { useChat } from '../contexts/ChatContext';
+
+interface OrderSnapshot {
+  items: ChartItem[];
+  destination: string;
+  totalPrice: number;
+  deliveryPrice: number;
+  successText: string;
+}
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import mapboxgl from 'mapbox-gl';
@@ -81,6 +89,7 @@ const Cart: React.FC = () => {
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [lastOrder, setLastOrder] = useState<OrderSnapshot | null>(null);
 
   useEffect(() => {
     if (userWarehouseAddresses.length > 0) {
@@ -338,19 +347,35 @@ const Cart: React.FC = () => {
           ? ` Не отправлено для ${result.skipped.map((s) => s.balanceUnit).join(', ')}.`
           : '';
 
-      setSubmitSuccess(`Заявка отправлена. Писем: ${result.sentCount}.${skippedText}`);
+      const successText = `Заявка отправлена. Писем: ${result.sentCount}.${skippedText}`;
+      setSubmitSuccess(successText);
 
-      // Open a chat conversation: company id, company name, product1_kcm, product2_kcm...
+      // Snapshot order details before clearing the cart
+      setLastOrder({
+        items: [...items],
+        destination: destinationAddress ?? '',
+        totalPrice,
+        deliveryPrice,
+        successText,
+      });
+
+      // Open one conversation per seller (grouped by balanceUnit)
       const buyerCompanyId = user.companyId || '';
       const companyName = user.company || '';
-      const productKcms = items.map((item) => item.row.materialCode || '').filter(Boolean);
-      const sellerCompanyIds = [...new Set(items.map((item) => item.row.balanceUnit || '').filter(Boolean))];
-      const participantCompanyIds = [
-        ...new Set([buyerCompanyId, ...sellerCompanyIds].filter(Boolean)),
-      ];
-      const conversationTitle = [buyerCompanyId, companyName, ...productKcms].join(', ');
-      if (conversationTitle && participantCompanyIds.length > 0) {
-        openConversation(conversationTitle, participantCompanyIds);
+      const sellerGroups = new Map<string, typeof items>();
+      items.forEach((item) => {
+        const sellerId = item.row.balanceUnit || '';
+        if (!sellerId) return;
+        if (!sellerGroups.has(sellerId)) sellerGroups.set(sellerId, []);
+        sellerGroups.get(sellerId)!.push(item);
+      });
+      for (const [sellerId, sellerItems] of sellerGroups) {
+        const kcms = sellerItems.map((i) => i.row.materialCode || '').filter(Boolean);
+        const title = [buyerCompanyId, companyName, ...kcms].join(', ');
+        const participants = [...new Set([buyerCompanyId, sellerId].filter(Boolean))];
+        if (title && participants.length > 0) {
+          openConversation(title, participants);
+        }
       }
 
       clearChart();
@@ -362,6 +387,111 @@ const Cart: React.FC = () => {
   };
 
   if (items.length === 0) {
+    if (lastOrder) {
+      // Group items by seller for display
+      const sellerGroupsForDisplay = new Map<string, { companyName: string; items: ChartItem[] }>();
+      lastOrder.items.forEach((item) => {
+        const sellerId = item.row.balanceUnit || '—';
+        if (!sellerGroupsForDisplay.has(sellerId)) {
+          sellerGroupsForDisplay.set(sellerId, { companyName: item.row.companyName || sellerId, items: [] });
+        }
+        sellerGroupsForDisplay.get(sellerId)!.items.push(item);
+      });
+
+      return (
+        <Box className="product-details-container">
+          <Container maxWidth="lg" className="product-details-content">
+            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/marketplace')} className="product-details-back-button">
+              Назад к торговой площадке
+            </Button>
+            <Typography variant="h4" component="h1" className="product-details-title" sx={{ mb: 1 }}>
+              Заявка оформлена
+            </Typography>
+            <Alert severity="success" sx={{ mb: 3 }}>
+              {lastOrder.successText}
+            </Alert>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Items grouped by seller */}
+              {Array.from(sellerGroupsForDisplay.entries()).map(([sellerId, group]) => (
+                <Paper key={sellerId} className="product-details-paper">
+                  <Typography variant="h6" className="product-details-section-title">
+                    {group.companyName}
+                  </Typography>
+                  <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)', mb: 2 }} />
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Код КСМ</TableCell>
+                          <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Наим. материала</TableCell>
+                          <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>ЕИ</TableCell>
+                          <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Количество</TableCell>
+                          <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Сумма, ₽</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {group.items.map((item) => {
+                          const rowQty = parseDecimalStr(String(item.row.quantity || '1')) || 1;
+                          const cost = parsePrice(item.row.cost || '0');
+                          const pricePerUnit = rowQty > 0 ? cost / rowQty : cost;
+                          const itemTotal = pricePerUnit * item.quantity;
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell sx={{ color: '#fff' }}>{item.row.materialCode || '—'}</TableCell>
+                              <TableCell sx={{ color: '#fff' }}>{item.row.materialName || '—'}</TableCell>
+                              <TableCell sx={{ color: '#fff' }}>{item.row.unit || '—'}</TableCell>
+                              <TableCell sx={{ color: '#fff' }}>{formatForDisplay(item.quantity, 3)}</TableCell>
+                              <TableCell sx={{ color: '#FED208', fontWeight: 600 }}>{formatForDisplay(itemTotal, 2)}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+              ))}
+
+              {/* Summary */}
+              <Paper className="product-details-paper" sx={{ maxWidth: 480 }}>
+                <Typography variant="h6" className="product-details-section-title">
+                  Итого
+                </Typography>
+                <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)', my: 2 }} />
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.8)' }}>Склад назначения:</Typography>
+                    <Typography sx={{ color: '#fff', fontWeight: 600, ml: 2, textAlign: 'right' }}>
+                      {lastOrder.destination}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.8)' }}>Стоимость товаров:</Typography>
+                    <Typography sx={{ color: '#FED208', fontWeight: 700 }}>
+                      {formatForDisplay(lastOrder.totalPrice, 2)} ₽
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.8)' }}>Доставка:</Typography>
+                    <Typography sx={{ color: '#FED208', fontWeight: 700 }}>
+                      {formatForDisplay(lastOrder.deliveryPrice, 2)} ₽
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ borderColor: 'rgba(254,210,8,0.3)' }} />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography sx={{ color: '#fff', fontWeight: 700 }}>Всего:</Typography>
+                    <Typography sx={{ color: '#FED208', fontWeight: 700, fontSize: '1.2rem' }}>
+                      {formatForDisplay(lastOrder.totalPrice + lastOrder.deliveryPrice, 2)} ₽
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            </Box>
+          </Container>
+        </Box>
+      );
+    }
+
     return (
       <Box className="product-details-container">
         <Container maxWidth="lg" className="product-details-content">

@@ -31,7 +31,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
+import { inventoryService, xlsxToCsv, MappedInventoryRow } from '../services/inventoryService';
 import { authService } from '../services/authService';
 import { useChart } from '../contexts/ChartContext';
 import { parseDecimalStr, sanitizeQuantityInput } from '../utils/numberUtils';
@@ -46,13 +46,14 @@ type ColumnFilters = {
   [key: string]: string;
 };
 
-/** Format number: space as thousands separator, comma as decimal separator */
-function formatNumber(value: string | number): string {
+/** Format number: space as thousands separator, comma as decimal separator. If decimals is provided, number is rounded to that precision. */
+function formatNumber(value: string | number, decimals?: number): string {
   const str = String(value ?? '').trim();
   if (!str || str === '-') return str;
   const num = parseDecimalStr(str);
   if (isNaN(num)) return str;
-  const parts = num.toString().split('.');
+  const raw = decimals !== undefined ? num.toFixed(decimals) : num.toString();
+  const parts = raw.split('.');
   const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   const decPart = parts[1] ? ',' + parts[1] : '';
   return intPart + decPart;
@@ -93,14 +94,11 @@ const Marketplace: React.FC = () => {
   const [uploadPreview, setUploadPreview] = useState<{
     rows: Record<string, string | number | null>[];
     columns: string[];
-    hasProfitColumn: boolean;
-    profitValues: string[];
-    allSameProfit: boolean;
     be: string;
     companyName: string;
+    profitability: string;
     csvText: string;
   } | null>(null);
-  const [userSpecifiedProfitability, setUserSpecifiedProfitability] = useState('');
   const [chartQtyEditing, setChartQtyEditing] = useState<{ id: string; value: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -148,7 +146,6 @@ const Marketplace: React.FC = () => {
     { key: 'unit', label: 'Ед. измерения', field: 'unit' },
     { key: 'quantity', label: 'Количество', field: 'quantity' },
     { key: 'unitPrice', label: 'Цена запаса, руб', field: 'unitPrice' },
-    { key: 'profitability', label: 'Рентабельность, %', field: 'profitability' },
     { key: 'cost', label: 'Стоимость запасов, руб', field: 'cost' },
   ];
 
@@ -170,7 +167,6 @@ const Marketplace: React.FC = () => {
       const myRows = user.companyId
         ? data.filter((row) => row.balanceUnit === user.companyId)
         : [];
-      // Replace cost with calculated value: Количество × Цена запаса × (1 + Рентабельность/100)
       return myRows.map((row) => {
         const qty = parseDecimalStr(row.quantity) || 0;
         const price = parseDecimalStr(row.unitPrice) || 0;
@@ -350,17 +346,30 @@ const Marketplace: React.FC = () => {
     setUploadMessage(null);
     setUploading(true);
     try {
-      const text = await file.text();
+      let text: string;
+      const isXlsx = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
+      if (isXlsx) {
+        const buffer = await file.arrayBuffer();
+        text = xlsxToCsv(buffer);
+      } else {
+        text = await file.text();
+      }
       const parsed = inventoryService.parseCsvForPreview(text);
       if (parsed.rows.length === 0) {
         setUploadMessage({ type: 'error', text: 'Файл пуст или не содержит данных' });
         return;
       }
+      // Get existing profitability from already-loaded data for this company
+      const existingRow = data.find((r) => r.balanceUnit === user.companyId && r.profitability);
+      const profitability = existingRow?.profitability ?? '';
       setUploadPreview({
-        ...parsed,
+        rows: parsed.rows,
+        columns: parsed.columns,
+        be: parsed.be,
+        companyName: parsed.companyName,
+        profitability,
         csvText: text,
       });
-      setUserSpecifiedProfitability('');
     } catch (err) {
       setUploadMessage({
         type: 'error',
@@ -373,23 +382,18 @@ const Marketplace: React.FC = () => {
 
   const handleConfirmUpload = async () => {
     if (!uploadPreview || !user?.companyId) return;
-    const { hasProfitColumn, csvText } = uploadPreview;
-    if (!hasProfitColumn && !userSpecifiedProfitability.trim()) {
-      setUploadMessage({ type: 'error', text: 'Укажите рентабельность (%)' });
-      return;
-    }
+    const { csvText, profitability } = uploadPreview;
     setUploading(true);
     setUploadMessage(null);
     try {
       const result = await inventoryService.updateInventoryFromFile(user.companyId, csvText, {
-        defaultProfitability: hasProfitColumn ? undefined : userSpecifiedProfitability.trim() || undefined,
+        defaultProfitability: profitability || undefined,
       });
       setUploadMessage({
         type: 'success',
         text: `Обновлено: удалено ${result.deleted} записей, добавлено ${result.inserted} записей`,
       });
       setUploadPreview(null);
-      setUserSpecifiedProfitability('');
       await loadData();
       setTimeout(() => setUploadMessage(null), 5000);
     } catch (err) {
@@ -404,7 +408,6 @@ const Marketplace: React.FC = () => {
 
   const handleCancelPreview = () => {
     setUploadPreview(null);
-    setUserSpecifiedProfitability('');
   };
 
   if (loading) {
@@ -501,50 +504,23 @@ const Marketplace: React.FC = () => {
                         {uploadPreview.companyName || '—'}
                       </Typography>
                     </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block' }}>
+                        Рентабельность
+                      </Typography>
+                      <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>
+                        {uploadPreview.profitability ? `${uploadPreview.profitability}%` : '—'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block' }}>
+                        Рентабельность
+                      </Typography>
+                      <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>
+                        {uploadPreview.profitability ? `${uploadPreview.profitability}%` : '—'}
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1 }}>
-                    Рентабельность
-                  </Typography>
-                  {uploadPreview.hasProfitColumn ? (
-                    <Box sx={{ p: 2, bgcolor: 'rgba(76,175,80,0.15)', borderRadius: 1 }}>
-                      {uploadPreview.allSameProfit ? (
-                        <Typography sx={{ color: '#fff' }}>
-                          <strong>{uploadPreview.profitValues[0] || '-'}%</strong>
-                        </Typography>
-                      ) : (
-                        <Typography sx={{ color: '#ff9800' }}>
-                          Внимание: разные значения в строках ({uploadPreview.profitValues.join(', ')}).
-                          Будет использовано первое значение: {uploadPreview.profitValues[0]}%
-                        </Typography>
-                      )}
-                    </Box>
-                  ) : (
-                    <Box sx={{ p: 2, bgcolor: 'rgba(255,152,0,0.15)', borderRadius: 1 }}>
-                      <Typography sx={{ color: '#fff', mb: 1 }}>
-                        Столбец рентабельности не найден. Укажите значение для всех строк:
-                      </Typography>
-                      <TextField
-                        size="small"
-                        placeholder="Например: 5.1"
-                        value={userSpecifiedProfitability}
-                        onChange={(e) => setUserSpecifiedProfitability(e.target.value)}
-                        inputProps={{ type: 'number', step: 0.1 }}
-                        sx={{
-                          width: 120,
-                          '& .MuiOutlinedInput-root': {
-                            color: '#fff',
-                            '& fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-                          },
-                        }}
-                      />
-                      <Typography component="span" sx={{ ml: 1, color: 'rgba(255,255,255,0.7)' }}>
-                        %
-                      </Typography>
-                    </Box>
-                  )}
                 </Box>
 
                 <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1 }}>
@@ -569,10 +545,10 @@ const Marketplace: React.FC = () => {
                             if (col === 'Стоимость запасов') {
                               const qty = parseDecimalStr(String(row['Количество'] ?? '')) || 0;
                               const price = parseDecimalStr(String(row['Цена запаса'] ?? '')) || 0;
-                              const profitPct = parseDecimalStr(String(row['Рентабельность'] ?? userSpecifiedProfitability ?? '')) || 0;
+                              const profitPct = parseDecimalStr(uploadPreview.profitability) || 0;
                               const computed = qty * price * (1 + profitPct / 100);
-                              display = computed > 0 ? formatNumber(computed) : '—';
-                            } else if (col === 'Количество' || col === 'Цена запаса' || col === 'Рентабельность') {
+                              display = computed > 0 ? formatNumber(computed, 2) : '—';
+                            } else if (col === 'Количество' || col === 'Цена запаса') {
                               display = formatNumber(row[col] ?? '');
                             } else {
                               display = String(row[col] ?? '-');
@@ -601,9 +577,7 @@ const Marketplace: React.FC = () => {
                 <Button
                   variant="contained"
                   onClick={handleConfirmUpload}
-                  disabled={
-                    (!uploadPreview.hasProfitColumn && !userSpecifiedProfitability.trim()) || uploading
-                  }
+                  disabled={uploading}
                   sx={{
                     backgroundColor: '#FED208',
                     color: 'black !important',
@@ -625,7 +599,7 @@ const Marketplace: React.FC = () => {
               backgroundColor: 'rgba(42,42,42,0.95)',
               border: '1px solid rgba(254,210,8,0.3)',
             }}
-          >
+            >
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3 }}>
               <Box>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>БЕ</Typography>
@@ -641,6 +615,14 @@ const Marketplace: React.FC = () => {
                   {dataForTab[0]?.companyName || '-'}
                 </Typography>
               </Box>
+              <Box>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                  Рентабельность
+                </Typography>
+                <Typography sx={{ color: '#fff', fontWeight: 500 }}>
+                  {dataForTab[0]?.profitability ? `${dataForTab[0]?.profitability}%` : '-'}
+                </Typography>
+              </Box>
             </Box>
           </Paper>
         )}
@@ -652,7 +634,7 @@ const Marketplace: React.FC = () => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   style={{ display: 'none' }}
                   onChange={handleFileSelect}
                 />
@@ -781,7 +763,11 @@ const Marketplace: React.FC = () => {
                         value={filterValue}
                         onChange={(_e, newValue) => handleColumnFilterChange(column.key, newValue ?? '')}
                         getOptionLabel={(opt) =>
-                          (column.key === 'quantity' || column.key === 'cost' || column.key === 'unitPrice') ? formatNumber(opt) : String(opt)
+                          column.key === 'cost'
+                            ? formatNumber(opt, 2)
+                            : (column.key === 'quantity' || column.key === 'unitPrice')
+                            ? formatNumber(opt)
+                            : String(opt)
                         }
                         renderInput={(params) => (
                           <TextField {...params} placeholder="Все" />
@@ -822,7 +808,7 @@ const Marketplace: React.FC = () => {
                         const value = rawValue === '' || rawValue == null ? '-' : rawValue;
                         const isNumericCol = column.key === 'quantity' || column.key === 'cost' || column.key === 'unitPrice';
                         const displayValue = isNumericCol
-                          ? formatNumber(value)
+                          ? (column.key === 'cost' ? formatNumber(value, 2) : formatNumber(value))
                           : value;
                         const isBalanceUnit = column.key === 'balanceUnit';
                         return (

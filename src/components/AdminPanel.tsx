@@ -400,9 +400,15 @@ const AdminPanel: React.FC = () => {
                         <TextField
                           size="small"
                           value={profitabilityByBe[row.be] ?? ''}
-                          onChange={(e) =>
-                            setProfitabilityByBe((prev) => ({ ...prev, [row.be]: e.target.value }))
-                          }
+                          onChange={(e) => {
+                            // Allow digits and at most one comma as decimal separator
+                            let v = e.target.value.replace(/[^\d,]/g, '');
+                            const parts = v.split(',');
+                            if (parts.length > 2) {
+                              v = parts[0] + ',' + parts.slice(1).join('');
+                            }
+                            setProfitabilityByBe((prev) => ({ ...prev, [row.be]: v }));
+                          }}
                           sx={{
                             width: 130,
                             '& .MuiOutlinedInput-root': {

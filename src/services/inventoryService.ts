@@ -1,6 +1,17 @@
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { supabase } from './supabaseClient';
 import { parseDecimalStr } from '../utils/numberUtils';
+
+/**
+ * Converts an XLSX file (as ArrayBuffer) to a CSV string using the first sheet.
+ */
+export function xlsxToCsv(buffer: ArrayBuffer): string {
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_csv(sheet, { FS: ',', blankrows: false });
+}
 
 // Database row interface matching Supabase table structure
 export interface InventoryRow {
@@ -304,7 +315,7 @@ export const inventoryService = {
     }
     const allSameProfit = profitValues.length <= 1;
 
-    // Table columns: exclude БЕ and Наименование дочернего Общества (shown at top). Include Цена запаса, Рентабельность; Стоимость запасов is calculated in UI.
+    // Table columns: exclude БЕ, Наименование дочернего Общества (shown at top) and Рентабельность (managed by admin, shown at top).
     const displayCols = [
       'Дата поступления',
       'Адрес склада',
@@ -317,7 +328,6 @@ export const inventoryService = {
       'БЕИ (единица измерения)',
       'Количество',
       'Цена запаса',
-      'Рентабельность',
       'Стоимость запасов',
     ];
     const colMap: Record<string, string[]> = {
