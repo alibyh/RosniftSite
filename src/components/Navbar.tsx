@@ -22,7 +22,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import logo from "../assets/Rosneft_logo.svg";
+import logo from "../assets/rosneft-logo-rus.svg";
 import { useChart } from "../contexts/ChartContext";
 import { useChat } from "../contexts/ChatContext";
 import { authService } from "../services/authService";
@@ -83,7 +83,7 @@ const Navbar: React.FC = () => {
           <div className="logo-round" style={{ width: "60px", height: "60px" }}>
             <img src={logo} alt="Rosneft Logo" className="logo-icon" />
           </div>
-          Роснефть
+          Корпоративная Торговая Площадка
         </Typography>
         {user && (
           <>

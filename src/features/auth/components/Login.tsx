@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { loginStart, loginSuccess, loginFailure, clearError } from '../authSlice';
 import { authService } from '../../../services/authService';
-import RosneftLogo from '../../../assets/Rosneft_logo.svg';
+import RosneftLogo from '../../../assets/rosneft-logo-rus.svg';
 
 
 
