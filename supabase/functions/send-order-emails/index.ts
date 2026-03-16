@@ -47,8 +47,8 @@ function breakAutoLink(value: string): string {
 }
 
 function buildMessageForCompany(
-  balanceUnit: string,
-  companyName: string,
+  _balanceUnit: string,
+  _companyName: string,
   items: OrderItem[],
   payload: Payload
 ): string {
@@ -76,7 +76,7 @@ function buildMessageForCompany(
 }
 
 function buildHtmlMessageForCompany(
-  balanceUnit: string,
+  _balanceUnit: string,
   companyName: string,
   items: OrderItem[],
   payload: Payload
@@ -99,7 +99,7 @@ function buildHtmlMessageForCompany(
     })
     .join('');
 
-  const destination = payload.destinationWarehouse || '-';
+  const _destination = payload.destinationWarehouse || '-';
   const requesterCompanyId = payload.requester.companyId || '-';
   const requesterCompanyName = payload.requester.companyName || '-';
   const requesterName = payload.requester.fullName || '-';
