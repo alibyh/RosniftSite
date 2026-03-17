@@ -553,8 +553,10 @@ const Cart: React.FC = () => {
                       const maxQty = rowQty;
                       const unit = (item.row.unit || '').trim().toLowerCase();
                       const isUnitTon = /^(т|тонн|тонна|тонны|t|ton|tonne)s?$/.test(unit);
-                      const displayQty = qtyEditing?.id === item.id ? qtyEditing.value : String(item.quantity);
-                      const displayTons = tonsEditing?.id === item.id ? tonsEditing.value : String(isUnitTon ? item.quantity : (item.tons ?? ''));
+                      const displayQty = qtyEditing?.id === item.id ? qtyEditing.value : formatForDisplay(item.quantity, 3);
+                      const displayTons = tonsEditing?.id === item.id
+                        ? tonsEditing.value
+                        : (isUnitTon ? formatForDisplay(item.quantity, 3) : (item.tons != null ? formatForDisplay(item.tons, 3) : ''));
                       return (
                         <TableRow key={item.id}>
                           <TableCell sx={{ color: '#fff' }}>{item.row.companyName || '-'}</TableCell>
@@ -579,7 +581,7 @@ const Cart: React.FC = () => {
                                 if (isUnitTon) updateTons(item.id, clamped);
                                 setQtyEditing(null);
                               }}
-                              onFocus={() => setQtyEditing({ id: item.id, value: String(item.quantity) })}
+                              onFocus={() => setQtyEditing({ id: item.id, value: sanitizeQuantityInput(String(item.quantity)) })}
                               inputProps={{ min: 0, step: 0.001 }}
                               sx={{
                                 width: 90,
@@ -624,7 +626,7 @@ const Cart: React.FC = () => {
                                   updateTons(item.id, valid ? parsed : 0);
                                   setTonsEditing(null);
                                 }}
-                                onFocus={() => setTonsEditing({ id: item.id, value: String(item.tons ?? '') })}
+                                onFocus={() => setTonsEditing({ id: item.id, value: sanitizeQuantityInput(String(item.tons ?? '')) })}
                                 placeholder="т"
                                 inputProps={{ min: 0, step: 0.001 }}
                                 sx={{

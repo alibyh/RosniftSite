@@ -1,6 +1,7 @@
 export function sanitizeQuantityInput(value: string): string {
   // Allow only digits and at most one comma as decimal separator.
-  let s = value.replace(/[^\d,]/g, '');
+  // Convert dot to comma (users often type '.' on keyboard).
+  let s = value.replace(/\./g, ',').replace(/[^\d,]/g, '');
   const parts = s.split(',');
   if (parts.length > 2) {
     s = parts[0] + ',' + parts.slice(1).join('');

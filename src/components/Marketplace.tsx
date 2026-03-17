@@ -33,7 +33,7 @@ import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { inventoryService, xlsxToCsv, MappedInventoryRow } from '../services/inventoryService';
 import { useChart } from '../contexts/ChartContext';
-import { parseDecimalStr, sanitizeQuantityInput } from '../utils/numberUtils';
+import { parseDecimalStr, sanitizeQuantityInput, formatForDisplay } from '../utils/numberUtils';
 import './Marketplace.css';
 
 interface ColumnWidths {
@@ -619,7 +619,7 @@ const Marketplace: React.FC = () => {
                   Рентабельность
                 </Typography>
                 <Typography sx={{ color: '#fff', fontWeight: 500 }}>
-                  {dataForTab[0]?.profitability ? `${dataForTab[0]?.profitability}%` : '-'}
+                  {dataForTab[0]?.profitability ? `${String(dataForTab[0]?.profitability).replace('.', ',')}%` : '-'}
                 </Typography>
               </Box>
             </Box>
@@ -861,7 +861,11 @@ const Marketplace: React.FC = () => {
                           type="text"
                           inputMode="decimal"
                           size="small"
-                          value={chartQtyEditing?.id === row.id ? chartQtyEditing.value : String(chartQty ?? '')}
+                          value={
+                            chartQtyEditing?.id === row.id
+                              ? chartQtyEditing.value
+                              : (chartQty != null ? formatForDisplay(chartQty, 3) : '')
+                          }
                           onChange={(e) =>
                             setChartQtyEditing({ id: row.id, value: sanitizeQuantityInput(e.target.value) })
                           }
@@ -876,7 +880,7 @@ const Marketplace: React.FC = () => {
                             updateQuantity(row.id, clamped);
                             setChartQtyEditing(null);
                           }}
-                          onFocus={() => setChartQtyEditing({ id: row.id, value: String(chartQty ?? '') })}
+                          onFocus={() => setChartQtyEditing({ id: row.id, value: sanitizeQuantityInput(String(chartQty ?? '')) })}
                           inputProps={{ min: 0, step: 0.001 }}
                           sx={{
                             width: 110,
