@@ -540,7 +540,7 @@ const Cart: React.FC = () => {
                       <TableCell sx={{ color: '#FED208', fontWeight: 700 }} title="Вес в тоннах для расчёта доставки (для каждой позиции)">
                       Вес, тн
                     </TableCell>
-                      <TableCell sx={{ color: '#FED208', fontWeight: 700 }}>Сумма</TableCell>
+                      <TableCell sx={{ color: '#FED208', fontWeight: 700, whiteSpace: 'nowrap' }}>Сумма</TableCell>
                       <TableCell align="right" sx={{ color: '#FED208', fontWeight: 700 }} />
                     </TableRow>
                   </TableHead>
@@ -641,7 +641,9 @@ const Cart: React.FC = () => {
                               />
                             )}
                           </TableCell>
-                          <TableCell sx={{ color: '#fff' }}>{formatForDisplay(itemTotal, 2)}</TableCell>
+                          <TableCell sx={{ color: '#fff', whiteSpace: 'nowrap' }}>
+                            {formatForDisplay(itemTotal, 2)}
+                          </TableCell>
                           <TableCell align="right">
                             <IconButton size="small" onClick={() => removeFromChart(item.id)} sx={{ color: '#FED208' }} title="Удалить">
                               <DeleteOutlineIcon />
