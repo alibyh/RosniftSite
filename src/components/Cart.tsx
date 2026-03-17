@@ -25,7 +25,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { useChart, ChartItem } from '../contexts/ChartContext';
-import { useChat } from '../contexts/ChatContext';
 
 interface OrderSnapshot {
   items: ChartItem[];
@@ -56,7 +55,6 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const user = useSelector((state: RootState) => state.auth.user);
   const { items, updateQuantity, updateTons, removeFromChart, clearChart } = useChart();
-  const { openConversation } = useChat();
   const { getRatesForBe } = useDeliveryRates();
   const rates = useMemo(
     () => getRatesForBe(user?.companyId || ''),
@@ -362,25 +360,6 @@ const Cart: React.FC = () => {
         deliveryPrice,
         successText,
       });
-
-      // Open one conversation per seller (grouped by balanceUnit)
-      const buyerCompanyId = user.companyId || '';
-      const companyName = user.company || '';
-      const sellerGroups = new Map<string, typeof items>();
-      items.forEach((item) => {
-        const sellerId = item.row.balanceUnit || '';
-        if (!sellerId) return;
-        if (!sellerGroups.has(sellerId)) sellerGroups.set(sellerId, []);
-        sellerGroups.get(sellerId)!.push(item);
-      });
-      for (const [sellerId, sellerItems] of sellerGroups) {
-        const kcms = sellerItems.map((i) => i.row.materialCode || '').filter(Boolean);
-        const title = [buyerCompanyId, companyName, ...kcms].join(', ');
-        const participants = [...new Set([buyerCompanyId, sellerId].filter(Boolean))];
-        if (title && participants.length > 0) {
-          openConversation(title, participants);
-        }
-      }
 
       clearChart();
     } catch (error) {

@@ -87,13 +87,13 @@ function buildHtmlMessageForCompany(
       const price = `${formatMoney(item.costRub)} руб.`;
       return `
         <tr>
-          <td style="border:1px solid #444;padding:10px 12px;">${
+          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${
             item.materialCode ? breakAutoLink(item.materialCode) : '-'
           }</td>
-          <td style="border:1px solid #444;padding:10px 12px;">${item.materialName || '-'}</td>
-          <td style="border:1px solid #444;padding:10px 12px;">${qtyOnly}</td>
-          <td style="border:1px solid #444;padding:10px 12px;">${price}</td>
-          <td style="border:1px solid #444;padding:10px 12px;">${item.warehouseAddress || '-'}</td>
+          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${item.materialName || '-'}</td>
+          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${qtyOnly}</td>
+          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${price}</td>
+          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${item.warehouseAddress || '-'}</td>
         </tr>
       `;
     })
@@ -111,23 +111,23 @@ function buildHtmlMessageForCompany(
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>Заявка на перераспределение МПЗ</title>
   </head>
-  <body style="margin:0;padding:0;background-color:#111111;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#ffffff;">
+  <body style="margin:0;padding:0;background-color:#ffffff;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#000000;">
     <div style="max-width:800px;margin:0 auto;padding:24px 16px;">
-      <h2 style="margin:0 0 16px 0;color:#ffffff;font-weight:600;font-size:18px;">
+      <h2 style="margin:0 0 16px 0;color:#000000;font-weight:600;font-size:18px;">
         Заявка на перераспределение МПЗ
       </h2>
-      <p style="margin:0 0 16px 0;color:#e0e0e0;font-size:14px;line-height:1.5;">
+      <p style="margin:0 0 16px 0;color:#111111;font-size:14px;line-height:1.5;">
         Вам направлен запрос на закупку следующих МПЗ:
       </p>
 
-      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #444444;background-color:#181818;font-size:13px;">
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #cccccc;background-color:#ffffff;font-size:13px;">
         <thead>
           <tr>
-            <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">КОД КСМ</th>
-            <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Наименование материала</th>
-            <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Количество</th>
-            <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Стоимость с учетом рентабельности, руб.</th>
-            <th style="border:1px solid #444444;padding:10px 12px;color:#ffffff;font-weight:500;text-align:left;">Адрес склада</th>
+            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">КОД КСМ</th>
+            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Наименование материала</th>
+            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Количество</th>
+            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Стоимость с учетом рентабельности, руб.</th>
+            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Адрес склада</th>
           </tr>
         </thead>
         <tbody>
@@ -135,14 +135,14 @@ function buildHtmlMessageForCompany(
         </tbody>
       </table>
 
-      <p style="margin:18px 0 8px 0;color:#e0e0e0;font-size:14px;line-height:1.5;">
+      <p style="margin:18px 0 8px 0;color:#111111;font-size:14px;line-height:1.5;">
         Необходимо подтверждение наличия запрашиваемых МПЗ.
       </p>
 
-      <p style="margin:8px 0 4px 0;color:#e0e0e0;font-size:13px;line-height:1.5;">
+      <p style="margin:8px 0 4px 0;color:#111111;font-size:13px;line-height:1.5;">
         <strong>Заказчик – БЕ:</strong> ${requesterCompanyId}, ${requesterCompanyName}
       </p>
-      <p style="margin:0 0 4px 0;color:#e0e0e0;font-size:13px;line-height:1.5;">
+      <p style="margin:0 0 4px 0;color:#111111;font-size:13px;line-height:1.5;">
         <strong>Ответственный:</strong> ${requesterName}, e-mail ${requesterEmail}
       </p>
     </div>
