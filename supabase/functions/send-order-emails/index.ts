@@ -58,7 +58,7 @@ function buildMessageForCompany(
         item.materialCode || '-',
         item.materialName || '-',
         String(item.quantity),
-        `${formatMoney(item.costRub)} руб.`,
+        `${formatMoney(item.costRub)}`,
         item.warehouseAddress || '-',
       ].join('\n')
     )
@@ -87,13 +87,13 @@ function buildHtmlMessageForCompany(
       const price = `${formatMoney(item.costRub)} руб.`;
       return `
         <tr>
-          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${
+          <td style="border:1px solid #cccccc;padding:8px 10px;color:#000000;white-space:nowrap;">${
             item.materialCode ? breakAutoLink(item.materialCode) : '-'
           }</td>
-          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${item.materialName || '-'}</td>
-          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${qtyOnly}</td>
-          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${price}</td>
-          <td style="border:1px solid #cccccc;padding:10px 12px;color:#000000;">${item.warehouseAddress || '-'}</td>
+          <td style="border:1px solid #cccccc;padding:8px 10px;color:#000000;">${item.materialName || '-'}</td>
+          <td style="border:1px solid #cccccc;padding:8px 10px;color:#000000;white-space:nowrap;">${qtyOnly}</td>
+          <td style="border:1px solid #cccccc;padding:8px 10px;color:#000000;white-space:nowrap;">${price}</td>
+          <td style="border:1px solid #cccccc;padding:8px 10px;color:#000000 !important;text-decoration:none !important;-webkit-text-decoration:none !important;">${breakAutoLink(item.warehouseAddress || '-')}</td>
         </tr>
       `;
     })
@@ -123,11 +123,11 @@ function buildHtmlMessageForCompany(
       <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #cccccc;background-color:#ffffff;font-size:13px;">
         <thead>
           <tr>
-            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">КОД КСМ</th>
-            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Наименование материала</th>
-            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Количество</th>
-            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Стоимость с учетом рентабельности, руб.</th>
-            <th style="border:1px solid #cccccc;padding:10px 12px;color:#000000;font-weight:500;text-align:left;">Адрес склада</th>
+            <th style="border:1px solid #cccccc;padding:8px 10px;color:#000000;font-weight:600;text-align:left;white-space:nowrap;">КОД КСМ</th>
+            <th style="border:1px solid #cccccc;padding:8px 10px;color:#000000;font-weight:600;text-align:left;">Наим. мат</th>
+            <th style="border:1px solid #cccccc;padding:8px 10px;color:#000000;font-weight:600;text-align:left;white-space:nowrap;">Количество</th>
+            <th style="border:1px solid #cccccc;padding:8px 10px;color:#000000;font-weight:600;text-align:left;white-space:nowrap;">Стоимость, руб</th>
+            <th style="border:1px solid #cccccc;padding:8px 10px;color:#000000;font-weight:600;text-align:left;">Адрес склада</th>
           </tr>
         </thead>
         <tbody>

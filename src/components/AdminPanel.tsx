@@ -94,6 +94,12 @@ const AdminPanel: React.FC = () => {
   const [savingRates, setSavingRates] = useState(false);
   const { companyRates, upsertCompanyRate, refreshCompanyRates } = useDeliveryRates();
 
+  const [newBeId, setNewBeId] = useState('');
+  const [newBeCompanyName, setNewBeCompanyName] = useState('');
+  const [newBeProfitability, setNewBeProfitability] = useState('');
+  const [creatingBe, setCreatingBe] = useState(false);
+  const [ratesTabMessage, setRatesTabMessage] = useState<string | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -181,9 +187,51 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const openRatesTabForBe = (be: string) => {
+  const openRatesTabForBe = (be: string, message?: string) => {
     setSelectedRatesBe(be);
+    setRatesTabMessage(message ?? null);
     setTabValue(1);
+  };
+
+  const handleCreateBe = async () => {
+    if (!newBeId.trim() || !newBeCompanyName.trim()) {
+      setError('Заполните БЕ и наименование общества');
+      return;
+    }
+    try {
+      setCreatingBe(true);
+      setError(null);
+      await inventoryService.createInventory({
+        balanceUnit: newBeId.trim(),
+        companyName: newBeCompanyName.trim(),
+        profitability: newBeProfitability,
+        receiptDate: '',
+        warehouseAddress: '',
+        materialClass: '',
+        className: '',
+        materialSubclass: '',
+        subclassName: '',
+        materialCode: '',
+        materialName: '',
+        unit: '',
+        quantity: '',
+        unitPrice: '',
+        cost: '',
+      });
+      await loadData();
+      const createdBe = newBeId.trim();
+      setNewBeId('');
+      setNewBeCompanyName('');
+      setNewBeProfitability('');
+      openRatesTabForBe(
+        createdBe,
+        `БЕ «${createdBe}» создана. Заполните тарифы доставки для этой БЕ.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка создания БЕ');
+    } finally {
+      setCreatingBe(false);
+    }
   };
 
   // ── Rates tab helpers ────────────────────────────────────────────────────
@@ -412,9 +460,83 @@ const AdminPanel: React.FC = () => {
                     <TableCell>БЕ</TableCell>
                     <TableCell>Общество</TableCell>
                     <TableCell>Рентабельность, %</TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableHead>
                 <TableBody>
+                  <TableRow>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        placeholder="Новая БЕ"
+                        value={newBeId}
+                        onChange={(e) => setNewBeId(e.target.value)}
+                        sx={{
+                          minWidth: 120,
+                          '& .MuiOutlinedInput-root': {
+                            color: '#fff',
+                            '& fieldset': { borderColor: '#FED208' },
+                            '&:hover fieldset': { borderColor: '#FED208' },
+                            '&.Mui-focused fieldset': { borderColor: '#FED208' },
+                          },
+                          '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.4)', opacity: 1 },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        placeholder="Наим. общества"
+                        value={newBeCompanyName}
+                        onChange={(e) => setNewBeCompanyName(e.target.value)}
+                        sx={{
+                          minWidth: 220,
+                          '& .MuiOutlinedInput-root': {
+                            color: '#fff',
+                            '& fieldset': { borderColor: '#FED208' },
+                            '&:hover fieldset': { borderColor: '#FED208' },
+                            '&.Mui-focused fieldset': { borderColor: '#FED208' },
+                          },
+                          '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.4)', opacity: 1 },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        placeholder="Рентабельность, %"
+                        value={newBeProfitability}
+                        onChange={(e) => {
+                          let v = e.target.value.replace(/\./g, ',').replace(/[^\d,]/g, '');
+                          const parts = v.split(',');
+                          if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
+                          setNewBeProfitability(v);
+                        }}
+                        sx={{
+                          width: 130,
+                          '& .MuiOutlinedInput-root': {
+                            color: '#fff',
+                            '& fieldset': { borderColor: '#FED208' },
+                            '&:hover fieldset': { borderColor: '#FED208' },
+                            '&.Mui-focused fieldset': { borderColor: '#FED208' },
+                          },
+                          '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.4)', opacity: 1 },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleCreateBe}
+                        disabled={creatingBe}
+                        className="admin-save-button"
+                        size="small"
+                      >
+                        {creatingBe ? 'Создание...' : 'Создать'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                   {filteredProfitRows.map((row) => (
                     <TableRow key={row.be}>
                       <TableCell>
@@ -453,6 +575,7 @@ const AdminPanel: React.FC = () => {
                           }}
                         />
                       </TableCell>
+                      <TableCell />
                     </TableRow>
                   ))}
                 </TableBody>
@@ -530,6 +653,15 @@ const AdminPanel: React.FC = () => {
             <Box className="admin-section-header">
               <Typography variant="h6">Тарифы доставки</Typography>
             </Box>
+            {ratesTabMessage && (
+              <Alert
+                severity="info"
+                onClose={() => setRatesTabMessage(null)}
+                sx={{ mb: 2 }}
+              >
+                {ratesTabMessage}
+              </Alert>
+            )}
             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
               Выберите БЕ и отредактируйте ставки. Если тарифы для БЕ не заданы, используются значения по умолчанию.
             </Typography>
