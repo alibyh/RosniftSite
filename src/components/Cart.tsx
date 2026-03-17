@@ -57,7 +57,11 @@ const Cart: React.FC = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const { items, updateQuantity, updateTons, removeFromChart, clearChart } = useChart();
   const { openConversation } = useChat();
-  const { rates } = useDeliveryRates();
+  const { getRatesForBe } = useDeliveryRates();
+  const rates = useMemo(
+    () => getRatesForBe(user?.companyId || ''),
+    [getRatesForBe, user?.companyId]
+  );
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);

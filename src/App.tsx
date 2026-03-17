@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './features/auth/components/Login';
 import Marketplace from './components/Marketplace';
-import ProductDetails from './components/ProductDetails';
 import Cart from './components/Cart';
 import AdminPanel from './components/AdminPanel';
 import Navbar from './components/Navbar';
@@ -66,22 +65,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   {user?.role === 'admin' ? <Navigate to="/admin" replace /> : <Marketplace />}
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/product-details"
-              element={
-                <ProtectedRoute>
-                  <ProductDetails />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/product-details/:id"
-              element={
-                <ProtectedRoute>
-                  <ProductDetails />
                 </ProtectedRoute>
               }
             />

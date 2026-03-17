@@ -34,8 +34,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import { inventoryService, MappedInventoryRow } from '../services/inventoryService';
 import { userService, type AppUser, type UserFormData, type UserRole } from '../services/userService';
 import {
-  deliveryRatesService,
-  DeliveryRate,
+  COMPANY_RATE_COLS,
+  type CompanyDeliveryRate,
   type DistanceBand,
   type WeightBand,
 } from '../services/deliveryRatesService';
@@ -80,7 +80,7 @@ const AdminPanel: React.FC = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [savingProfitForBe, setSavingProfitForBe] = useState<string | null>(null);
+  const [savingAllProfit, setSavingAllProfit] = useState(false);
   const [profitabilityByBe, setProfitabilityByBe] = useState<Record<string, string>>({});
   const [profitFilterBe, setProfitFilterBe] = useState('');
   const [profitFilterCompany, setProfitFilterCompany] = useState('');
@@ -89,60 +89,18 @@ const AdminPanel: React.FC = () => {
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [userFormData, setUserFormData] = useState<Partial<UserFormData>>({});
 
-  const [ratesRows, setRatesRows] = useState<DeliveryRate[]>([]);
-  const [loadingRates, setLoadingRates] = useState(false);
-  const [savingRateId, setSavingRateId] = useState<string | null>(null);
-  const [ratesByKey, setRatesByKey] = useState<Record<string, string>>({});
-  const { refreshRates } = useDeliveryRates();
+  const [selectedRatesBe, setSelectedRatesBe] = useState<string>('');
+  const [editingRates, setEditingRates] = useState<Record<string, string>>({});
+  const [savingRates, setSavingRates] = useState(false);
+  const { companyRates, upsertCompanyRate, refreshCompanyRates } = useDeliveryRates();
 
   useEffect(() => {
     loadData();
   }, []);
 
   useEffect(() => {
-    if (tabValue === 2) loadRates();
+    if (tabValue === 2) refreshCompanyRates();
   }, [tabValue]);
-
-  const loadRates = async () => {
-    try {
-      setLoadingRates(true);
-      setError(null);
-      const rows = await deliveryRatesService.getAllRates();
-      setRatesRows(rows);
-      const byKey: Record<string, string> = {};
-      rows.forEach((r) => {
-        byKey[r.id] = String(r.rate);
-      });
-      setRatesByKey(byKey);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Ошибка загрузки тарифов';
-      setError(msg.includes('policy') || msg.includes('RLS') || msg.includes('permission')
-        ? `${msg} Выполните в Supabase: supabase/migrations/20250309_delivery_rates_allow_read.sql`
-        : msg);
-    } finally {
-      setLoadingRates(false);
-    }
-  };
-
-  const handleSaveRate = async (row: DeliveryRate) => {
-    const raw = ratesByKey[row.id] ?? String(row.rate);
-    const parsed = parseFloat(String(raw).replace(',', '.'));
-    if (isNaN(parsed) || parsed < 0) {
-      setError('Введите корректное значение ставки');
-      return;
-    }
-    try {
-      setSavingRateId(row.id);
-      setError(null);
-      await deliveryRatesService.updateRate(row.id, parsed);
-      setRatesRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, rate: parsed } : r)));
-      await refreshRates();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка сохранения ставки');
-    } finally {
-      setSavingRateId(null);
-    }
-  };
 
   const loadData = async () => {
     try {
@@ -200,23 +158,79 @@ const AdminPanel: React.FC = () => {
   useEffect(() => {
     const initial: Record<string, string> = {};
     profitRows.forEach((r) => {
-      initial[r.be] = r.profitability;
+      initial[r.be] = String(r.profitability ?? '').replace('.', ',');
     });
     setProfitabilityByBe(initial);
   }, [profitRows]);
 
-  const handleSaveProfitability = async (be: string) => {
-    const value = profitabilityByBe[be] ?? '';
+  const handleSaveAllProfitability = async () => {
     try {
-      setSavingProfitForBe(be);
-      await inventoryService.updateProfitabilityForBalanceUnit(be, value);
-      setProducts((prev) =>
-        prev.map((p) => (p.balanceUnit === be ? { ...p, profitability: value } : p))
-      );
+      setSavingAllProfit(true);
+      setError(null);
+      for (const row of profitRows) {
+        const value = profitabilityByBe[row.be] ?? '';
+        await inventoryService.updateProfitabilityForBalanceUnit(row.be, value);
+        setProducts((prev) =>
+          prev.map((p) => (p.balanceUnit === row.be ? { ...p, profitability: value } : p))
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка сохранения рентабельности');
     } finally {
-      setSavingProfitForBe(null);
+      setSavingAllProfit(false);
+    }
+  };
+
+  const openRatesTabForBe = (be: string) => {
+    setSelectedRatesBe(be);
+    setTabValue(1);
+  };
+
+  // ── Rates tab helpers ────────────────────────────────────────────────────
+
+  // Populate editing fields whenever the selected BE or loaded companyRates changes
+  useEffect(() => {
+    if (!selectedRatesBe) return;
+    const existing = companyRates.find((r) => r.be === selectedRatesBe);
+    const initial: Record<string, string> = {};
+    COMPANY_RATE_COLS.forEach(({ col }) => {
+      const raw = existing ? String(existing[col]) : '';
+      initial[col] = raw.replace('.', ',');
+    });
+    setEditingRates(initial);
+  }, [selectedRatesBe, companyRates]);
+
+  const handleSaveCompanyRates = async () => {
+    if (!selectedRatesBe) return;
+    const parsedValues: Omit<CompanyDeliveryRate, 'id' | 'be' | 'company_name'> = {
+      rate_10_18_50_250: 0,
+      rate_10_18_251_1000: 0,
+      rate_10_18_1001_2999: 0,
+      rate_10_18_3000plus: 0,
+      rate_over18_50_250: 0,
+      rate_over18_251_1000: 0,
+      rate_over18_1001_2999: 0,
+      rate_over18_3000plus: 0,
+    };
+    for (const { col } of COMPANY_RATE_COLS) {
+      const raw = editingRates[col] ?? '';
+      const v = parseFloat(String(raw).replace(',', '.'));
+      if (isNaN(v) || v < 0) {
+        setError(`Некорректное значение ставки: ${raw}`);
+        return;
+      }
+      (parsedValues as Record<string, number>)[col] = v;
+    }
+    const row = profitRows.find((r) => r.be === selectedRatesBe);
+    const companyName = row?.companyName ?? '';
+    try {
+      setSavingRates(true);
+      setError(null);
+      await upsertCompanyRate(selectedRatesBe, companyName, parsedValues);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения тарифов');
+    } finally {
+      setSavingRates(false);
     }
   };
 
@@ -303,8 +317,8 @@ const AdminPanel: React.FC = () => {
           <Box className="admin-tabs-container">
             <Tabs value={tabValue} onChange={(_e, n) => setTabValue(n)} className="admin-tabs">
               <Tab label="Рентабельность" />
-              <Tab label="Пользователи" />
               <Tab label="Тарифы доставки" />
+              <Tab label="Пользователи" />
             </Tabs>
           </Box>
 
@@ -381,6 +395,16 @@ const AdminPanel: React.FC = () => {
                 </Typography>
               )}
             </Box>
+            <Box sx={{ mb: 2 }}>
+              <Button
+                variant="contained"
+                className="admin-save-button"
+                onClick={handleSaveAllProfitability}
+                disabled={savingAllProfit}
+              >
+                {savingAllProfit ? 'Сохранение...' : 'Сохранить все изменения'}
+              </Button>
+            </Box>
             <TableContainer className="admin-table-container">
               <Table>
                 <TableHead>
@@ -388,25 +412,34 @@ const AdminPanel: React.FC = () => {
                     <TableCell>БЕ</TableCell>
                     <TableCell>Общество</TableCell>
                     <TableCell>Рентабельность, %</TableCell>
-                    <TableCell align="right">Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredProfitRows.map((row) => (
                     <TableRow key={row.be}>
-                      <TableCell>{row.be}</TableCell>
+                      <TableCell>
+                        <Typography
+                          component="span"
+                          onClick={() => openRatesTabForBe(row.be)}
+                          sx={{
+                            color: '#FED208',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            '&:hover': { opacity: 0.9 },
+                          }}
+                        >
+                          {row.be}
+                        </Typography>
+                      </TableCell>
                       <TableCell>{row.companyName}</TableCell>
                       <TableCell>
                         <TextField
                           size="small"
                           value={profitabilityByBe[row.be] ?? ''}
                           onChange={(e) => {
-                            // Allow digits and at most one comma as decimal separator
-                            let v = e.target.value.replace(/[^\d,]/g, '');
+                            let v = e.target.value.replace(/\./g, ',').replace(/[^\d,]/g, '');
                             const parts = v.split(',');
-                            if (parts.length > 2) {
-                              v = parts[0] + ',' + parts.slice(1).join('');
-                            }
+                            if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
                             setProfitabilityByBe((prev) => ({ ...prev, [row.be]: v }));
                           }}
                           sx={{
@@ -420,17 +453,6 @@ const AdminPanel: React.FC = () => {
                           }}
                         />
                       </TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => handleSaveProfitability(row.be)}
-                          className="admin-save-button"
-                          disabled={savingProfitForBe === row.be}
-                        >
-                          {savingProfitForBe === row.be ? 'Сохранение...' : 'Сохранить'}
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -438,7 +460,7 @@ const AdminPanel: React.FC = () => {
             </TableContainer>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={1}>
+          <TabPanel value={tabValue} index={2}>
             <Box className="admin-section-header">
               <Typography variant="h6">Управление пользователями</Typography>
               <Button
@@ -504,73 +526,94 @@ const AdminPanel: React.FC = () => {
             </TableContainer>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={2}>
+          <TabPanel value={tabValue} index={1}>
             <Box className="admin-section-header">
               <Typography variant="h6">Тарифы доставки</Typography>
             </Box>
             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
-              Редактируйте ставки для расчёта стоимости доставки в корзине.
+              Выберите БЕ и отредактируйте ставки. Если тарифы для БЕ не заданы, используются значения по умолчанию.
             </Typography>
-            {loadingRates ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress className="admin-loading-spinner" />
-              </Box>
-            ) : ratesRows.length === 0 ? (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Таблица delivery_rates не создана или пуста. Выполните миграцию в Supabase: supabase/migrations/20250309_delivery_rates.sql
-              </Alert>
-            ) : (
-              <TableContainer className="admin-table-container">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Загрузка, тонн</TableCell>
-                      <TableCell>Расстояние, км</TableCell>
-                      <TableCell>Ставка, ₽ за 1 т·км</TableCell>
-                      <TableCell align="right">Действия</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {ratesRows.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>{WEIGHT_LABELS[row.weight_band]}</TableCell>
-                        <TableCell>{DISTANCE_LABELS[row.distance_band]}</TableCell>
-                        <TableCell>
-                          <TextField
-                            size="small"
-                            type="number"
-                            inputProps={{ min: 0, step: 0.01 }}
-                            value={ratesByKey[row.id] ?? row.rate}
-                            onChange={(e) =>
-                              setRatesByKey((prev) => ({ ...prev, [row.id]: e.target.value }))
-                            }
-                            sx={{
-                              width: 120,
-                              '& .MuiOutlinedInput-root': {
-                                color: '#fff',
-                                '& fieldset': { borderColor: 'rgba(255,255,255,0.65)' },
-                                '&:hover fieldset': { borderColor: '#fff' },
-                                '&.Mui-focused fieldset': { borderColor: '#fff' },
-                              },
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleSaveRate(row)}
-                            className="admin-save-button"
-                            disabled={savingRateId === row.id}
-                          >
-                            {savingRateId === row.id ? 'Сохранение...' : 'Сохранить'}
-                          </Button>
-                        </TableCell>
+
+            {/* BE selector */}
+            <FormControl size="small" sx={{ minWidth: 320, mb: 3 }}>
+              <InputLabel sx={{ color: 'rgba(255,255,255,0.7)' }}>БЕ</InputLabel>
+              <Select
+                value={selectedRatesBe}
+                label="БЕ"
+                onChange={(e) => setSelectedRatesBe(e.target.value)}
+                sx={{
+                  color: '#fff',
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
+                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' },
+                  '& .MuiSvgIcon-root': { color: '#fff' },
+                }}
+              >
+                {profitRows.map((r) => (
+                  <MenuItem key={r.be} value={r.be}>
+                    {r.be}{r.companyName ? ` — ${r.companyName}` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {selectedRatesBe ? (
+              <>
+                <TableContainer className="admin-table-container" sx={{ maxWidth: 600 }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Загрузка, тонн</TableCell>
+                        <TableCell>Расстояние, км</TableCell>
+                        <TableCell>Ставка, ₽ за 1 т·км</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {COMPANY_RATE_COLS.map(({ col, weight_band, distance_band }) => (
+                        <TableRow key={col}>
+                          <TableCell>{WEIGHT_LABELS[weight_band]}</TableCell>
+                          <TableCell>{DISTANCE_LABELS[distance_band]}</TableCell>
+                          <TableCell>
+                            <TextField
+                              size="small"
+                              value={editingRates[col] ?? ''}
+                              onChange={(e) => {
+                                let v = e.target.value.replace(/\./g, ',').replace(/[^\d,]/g, '');
+                                const parts = v.split(',');
+                                if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
+                                setEditingRates((prev) => ({ ...prev, [col]: v }));
+                              }}
+                              sx={{
+                                width: 120,
+                                '& .MuiOutlinedInput-root': {
+                                  color: '#fff',
+                                  '& fieldset': { borderColor: 'rgba(255,255,255,0.65)' },
+                                  '&:hover fieldset': { borderColor: '#fff' },
+                                  '&.Mui-focused fieldset': { borderColor: '#fff' },
+                                },
+                              }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                <Box sx={{ mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    className="admin-save-button"
+                    onClick={handleSaveCompanyRates}
+                    disabled={savingRates}
+                  >
+                    {savingRates ? 'Сохранение...' : 'Сохранить тарифы для выбранной БЕ'}
+                  </Button>
+                </Box>
+              </>
+            ) : (
+              <Typography sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                Выберите БЕ из списка выше.
+              </Typography>
             )}
           </TabPanel>
         </Paper>

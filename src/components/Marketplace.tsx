@@ -32,7 +32,6 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { inventoryService, xlsxToCsv, MappedInventoryRow } from '../services/inventoryService';
-import { authService } from '../services/authService';
 import { useChart } from '../contexts/ChartContext';
 import { parseDecimalStr, sanitizeQuantityInput } from '../utils/numberUtils';
 import './Marketplace.css';
@@ -810,21 +809,13 @@ const Marketplace: React.FC = () => {
                         const displayValue = isNumericCol
                           ? (column.key === 'cost' ? formatNumber(value, 2) : formatNumber(value))
                           : value;
-                        const isBalanceUnit = column.key === 'balanceUnit';
                         return (
                           <TableCell
                             key={column.key}
-                            className={`marketplace-table-cell ${isBalanceUnit ? 'clickable' : ''}`}
+                            className="marketplace-table-cell"
                             style={{
                               width: `${columnWidths[column.key]}px`,
                               minWidth: `${columnWidths[column.key]}px`,
-                            }}
-                            onClick={() => {
-                              if (isBalanceUnit) {
-                                authService.persistSessionToLocalStorage();
-                                const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
-                                window.open(`${window.location.origin}${base}product-details/${row.id}`, '_blank', 'noopener,noreferrer');
-                              }
                             }}
                             title={typeof displayValue === 'string' ? displayValue : String(displayValue)}
                           >
