@@ -37,7 +37,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { geocodeAddress, getRouteWithWaypoints } from '../services/mapboxService';
+import { MAPBOX_API_KEY, geocodeAddress, getRouteWithWaypoints } from '../services/mapboxService';
 import { inventoryService } from '../services/inventoryService';
 import { orderService, mapCartItemsToOrderPayload } from '../services/orderService';
 import { parseDecimalStr, sanitizeQuantityInput, formatForDisplay } from '../utils/numberUtils';
@@ -45,7 +45,7 @@ import { legDeliveryCostRub, effectiveWeightTons, getDeliveryRate } from '../uti
 import { useDeliveryRates } from '../contexts/DeliveryRatesContext';
 import './ProductDetails.css';
 
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+mapboxgl.accessToken = MAPBOX_API_KEY;
 
 const parsePrice = (str: string): number => {
   return parseDecimalStr(str) || 0;
@@ -63,11 +63,14 @@ const Cart: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mapLoadTimeoutRef = useRef<number | null>(null);
 
   const [warehouseOrder, setWarehouseOrder] = useState<string[]>([]);
   const [routeLegDistancesKm, setRouteLegDistancesKm] = useState<number[]>([]);
   const [loadingMap, setLoadingMap] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapDebugStatus, setMapDebugStatus] = useState<string>('Инициализация карты');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const userWarehouseAddresses = useMemo(() => {
@@ -85,7 +88,11 @@ const Cart: React.FC = () => {
   }, [userWarehouseAddresses, inventoryWarehouses]);
 
   const [selectedDestination, setSelectedDestination] = useState<string>('');
-  const destinationAddress = selectedDestination?.trim() || null;
+  const safeSelectedDestination = useMemo(
+    () => (deliveryWarehouseOptions.includes(selectedDestination) ? selectedDestination : ''),
+    [deliveryWarehouseOptions, selectedDestination]
+  );
+  const destinationAddress = safeSelectedDestination?.trim() || null;
   const [qtyEditing, setQtyEditing] = useState<{ id: string; value: string } | null>(null);
   const [tonsEditing, setTonsEditing] = useState<{ id: string; value: string } | null>(null);
   const [submittingOrder, setSubmittingOrder] = useState(false);
@@ -106,6 +113,17 @@ const Cart: React.FC = () => {
       setSelectedDestination(inventoryWarehouses[0]);
     }
   }, [inventoryWarehouses]);
+
+  useEffect(() => {
+    if (!selectedDestination) return;
+    if (deliveryWarehouseOptions.length === 0) {
+      setSelectedDestination('');
+      return;
+    }
+    if (!deliveryWarehouseOptions.includes(selectedDestination)) {
+      setSelectedDestination(deliveryWarehouseOptions[0] ?? '');
+    }
+  }, [deliveryWarehouseOptions, selectedDestination]);
 
   useEffect(() => {
     if (userWarehouseAddresses.length > 0) {
@@ -184,7 +202,20 @@ const Cart: React.FC = () => {
 
   // Initialize Mapbox map
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    if (!mapContainerRef.current) {
+      setLoadingMap(true);
+      setMapDebugStatus('Ожидание контейнера карты');
+      return;
+    }
+    if (mapRef.current) return;
+    if (!mapboxgl.accessToken) {
+      setMapError('Не задан токен карты');
+      setMapReady(false);
+      setMapDebugStatus('Токен карты отсутствует');
+      setLoadingMap(false);
+      return;
+    }
+    setMapDebugStatus('Создание экземпляра карты');
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
@@ -194,27 +225,67 @@ const Cart: React.FC = () => {
     });
     mapRef.current = map;
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.on('load', () => setLoadingMap(false));
-    map.on('error', () => {
+    mapLoadTimeoutRef.current = window.setTimeout(() => {
+      setMapError('Карта не загрузилась вовремя. Проверьте сеть или токен Mapbox.');
+      setMapDebugStatus('Таймаут загрузки стиля карты');
+      setLoadingMap(false);
+    }, 10000);
+    map.on('styledata', () => setMapDebugStatus('Стиль карты загружен'));
+    map.on('load', () => {
+      if (mapLoadTimeoutRef.current != null) {
+        window.clearTimeout(mapLoadTimeoutRef.current);
+        mapLoadTimeoutRef.current = null;
+      }
+      map.resize();
+      setMapReady(true);
+      setMapDebugStatus('Карта загружена');
+      setLoadingMap(false);
+    });
+    map.on('error', (event) => {
+      console.error('Mapbox render error:', event?.error);
       setMapError('Ошибка загрузки карты');
+      setMapReady(false);
+      setMapDebugStatus('Ошибка рендера карты');
       setLoadingMap(false);
     });
     return () => {
+      if (mapLoadTimeoutRef.current != null) {
+        window.clearTimeout(mapLoadTimeoutRef.current);
+        mapLoadTimeoutRef.current = null;
+      }
       mapRef.current?.remove();
       mapRef.current = null;
+      setMapReady(false);
     };
-  }, []);
+  }, [items.length]);
 
   // Load route when warehouse order or destination changes
   useEffect(() => {
     const routeAddresses = destinationAddress
       ? [...warehouseOrder, destinationAddress]
       : warehouseOrder;
-    if (routeAddresses.length < 2 || !mapRef.current) return;
+    if (!mapRef.current) {
+      setLoadingMap(true);
+      setMapReady(false);
+      setMapDebugStatus('Ожидание инициализации карты');
+      return;
+    }
+    if (!mapReady) {
+      setLoadingMap(true);
+      setMapDebugStatus('Ожидание готовности карты');
+      return;
+    }
+    if (routeAddresses.length < 2) {
+      setLoadingMap(false);
+      setMapDebugStatus('Недостаточно точек для маршрута');
+      setRouteLegDistancesKm([]);
+      return;
+    }
 
     const loadRoute = async () => {
       setLoadingMap(true);
       setMapError(null);
+      setMapDebugStatus('Геокодирование адресов');
 
       try {
         const coords: [number, number][] = [];
@@ -241,6 +312,7 @@ const Cart: React.FC = () => {
         if (map.getSource('route')) map.removeSource('route');
 
         const routeData = await getRouteWithWaypoints(coords);
+        setMapDebugStatus('Маршрут получен');
 
         if (routeData && map) {
           setRouteLegDistancesKm(
@@ -285,11 +357,15 @@ const Cart: React.FC = () => {
           const bounds = new mapboxgl.LngLatBounds();
           coords.forEach((c) => bounds.extend(c));
           map.fitBounds(bounds, { padding: { top: 50, bottom: 50, left: 50, right: 50 }, duration: 1000 });
+          setMapDebugStatus('Маршрут отображен');
         } else {
+          setMapDebugStatus('Маршрут не найден');
           setRouteLegDistancesKm([]);
         }
-      } catch {
+      } catch (error) {
+        console.error('Route build error:', error);
         setMapError('Ошибка построения маршрута');
+        setMapDebugStatus('Сбой построения маршрута');
         setRouteLegDistancesKm([]);
       }
       setLoadingMap(false);
@@ -297,7 +373,18 @@ const Cart: React.FC = () => {
 
     const t = setTimeout(loadRoute, 500);
     return () => clearTimeout(t);
-  }, [warehouseOrder, destinationAddress]);
+  }, [warehouseOrder, destinationAddress, mapReady]);
+
+  // Hard guard: never allow infinite loader state.
+  useEffect(() => {
+    if (!loadingMap) return;
+    const timeout = window.setTimeout(() => {
+      setMapError((prev) => prev ?? 'Карта загружается слишком долго');
+      setMapDebugStatus('Глобальный таймаут загрузки');
+      setLoadingMap(false);
+    }, 15000);
+    return () => window.clearTimeout(timeout);
+  }, [loadingMap]);
 
   const handleDragStart = (index: number) => setDraggedIndex(index);
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
@@ -715,7 +802,7 @@ const Cart: React.FC = () => {
                       Выберите склад
                     </InputLabel>
                     <Select
-                      value={selectedDestination}
+                      value={safeSelectedDestination}
                       onChange={(e) => setSelectedDestination(e.target.value)}
                       label="Выберите склад"
                       className="product-details-select"
@@ -745,10 +832,20 @@ const Cart: React.FC = () => {
               <Box className="product-details-map-container">
                 <Box ref={mapContainerRef} className="product-details-map-box" />
                 {loadingMap && (
-                  <Box className="product-details-map-loading">Загрузка карты...</Box>
+                  <Box className="product-details-map-loading">
+                    <div>Загрузка карты...</div>
+                    <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>
+                      {mapDebugStatus}
+                    </div>
+                  </Box>
                 )}
                 {mapError && (
                   <Typography sx={{ color: '#f44336', p: 2 }}>{mapError}</Typography>
+                )}
+                {!loadingMap && !mapError && !mapReady && (
+                  <Typography sx={{ color: 'rgba(255,255,255,0.8)', p: 2 }}>
+                    Карта не отобразилась. Обновите страницу или проверьте токен/сеть.
+                  </Typography>
                 )}
               </Box>
             </Paper>

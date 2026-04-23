@@ -1,7 +1,23 @@
 // Mapbox service for geocoding and routing
 // Get your free API key from: https://account.mapbox.com/access-tokens/
 
-const MAPBOX_API_KEY = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiYWxpYnloNzkiLCJhIjoiY21oa3JmMjE1MWphdDJqcXFzYWRiM2pwNSJ9.eTeDf44PmOr7DFpeMzSHXQ';
+export const MAPBOX_API_KEY = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoiYWxpYnloNzkiLCJhIjoiY21oa3JmMjE1MWphdDJqcXFzYWRiM2pwNSJ9.eTeDf44PmOr7DFpeMzSHXQ';
+const MAPBOX_REQUEST_TIMEOUT_MS = 12000;
+const MAPBOX_VERBOSE_LOGS = false;
+
+const mapboxLog = (...args: unknown[]) => {
+  if (MAPBOX_VERBOSE_LOGS) console.log(...args);
+};
+
+const fetchWithTimeout = async (url: string, timeoutMs = MAPBOX_REQUEST_TIMEOUT_MS): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+};
 
 /**
  * Calculate straight-line distance between two coordinates (Haversine formula)
@@ -82,8 +98,8 @@ export const geocodeAddress = async (address: string): Promise<[number, number] 
   try {
     // Normalize the address
     const normalizedAddress = normalizeRussianAddress(address);
-    console.log('Original address:', address);
-    console.log('Normalized address:', normalizedAddress);
+    mapboxLog('Original address:', address);
+    mapboxLog('Normalized address:', normalizedAddress);
     
     const encodedAddress = encodeURIComponent(normalizedAddress);
     
@@ -97,10 +113,10 @@ export const geocodeAddress = async (address: string): Promise<[number, number] 
       // Krasnoyarsk city coordinates: [92.8932, 56.0087]
       url += `&proximity=92.8932,56.0087`;
       useProximity = true;
-      console.log('📍 Using Krasnoyarsk proximity bias');
+      mapboxLog('📍 Using Krasnoyarsk proximity bias');
     }
     
-    let response = await fetch(url);
+    let response = await fetchWithTimeout(url);
     
     if (!response.ok) {
       console.error('Mapbox Geocoding API error:', response.status, response.statusText);
@@ -123,7 +139,7 @@ export const geocodeAddress = async (address: string): Promise<[number, number] 
         const altEncoded = encodeURIComponent(alternativeAddress);
         const altUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${altEncoded}.json?access_token=${MAPBOX_API_KEY}&country=ru&limit=10&types=address,poi,place&proximity=92.8932,56.0087`;
         
-        const altResponse = await fetch(altUrl);
+        const altResponse = await fetchWithTimeout(altUrl);
         if (altResponse.ok) {
           const altData = await altResponse.json();
           if (altData.features && altData.features.length > 0) {
@@ -131,7 +147,7 @@ export const geocodeAddress = async (address: string): Promise<[number, number] 
               (f.place_name || '').toLowerCase().includes('красноярск')
             );
             if (altResult) {
-              console.log('✅ Found better result with alternative format');
+              mapboxLog('✅ Found better result with alternative format');
               data.features.unshift(altResult); // Add to beginning of results
             }
           }
@@ -157,7 +173,7 @@ export const geocodeAddress = async (address: string): Promise<[number, number] 
         
         if (krasnoyarskResult) {
           bestResult = krasnoyarskResult;
-          console.log('✅ Found Krasnoyarsk region result');
+          mapboxLog('✅ Found Krasnoyarsk region result');
         } else {
           console.warn('⚠️ No Krasnoyarsk region result found, using first result');
         }
@@ -177,11 +193,11 @@ export const geocodeAddress = async (address: string): Promise<[number, number] 
       const placeName = bestResult.place_name || bestResult.text || 'Unknown';
       const relevance = bestResult.relevance || 0;
       
-      console.log('Geocoded:', address);
-      console.log('  -> Coordinates:', [longitude, latitude]);
-      console.log('  -> Place:', placeName);
-      console.log('  -> Relevance:', relevance);
-      console.log('  -> All results:', data.features.length);
+      mapboxLog('Geocoded:', address);
+      mapboxLog('  -> Coordinates:', [longitude, latitude]);
+      mapboxLog('  -> Place:', placeName);
+      mapboxLog('  -> Relevance:', relevance);
+      mapboxLog('  -> All results:', data.features.length);
       
       // Check if result is in wrong region
       if (isKrasnoyarskAddress && !placeName.toLowerCase().includes('красноярск')) {
@@ -190,9 +206,7 @@ export const geocodeAddress = async (address: string): Promise<[number, number] 
       }
       
       // Warn if relevance is low (might be wrong location)
-      if (relevance < 0.7) {
-        console.warn('⚠️ Low geocoding relevance - address might not match exactly');
-      }
+      if (relevance < 0.7) mapboxLog('Low geocoding relevance for address:', address, relevance);
       
       return [longitude, latitude]; // Mapbox uses [lon, lat] format
     }
@@ -242,7 +256,7 @@ export const getRoute = async (
     const coordinates = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`;
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?access_token=${MAPBOX_API_KEY}&geometries=geojson&overview=full&steps=false`;
     
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
     
     if (!response.ok) {
       console.error('Mapbox Directions API error:', response.status, response.statusText);
@@ -286,6 +300,80 @@ export interface RouteLeg {
   duration: number; // seconds
 }
 
+function buildStraightLineRoute(
+  coordinates: [number, number][]
+): { geometry: GeoJSON.LineString; distance: number; duration: number; legs: RouteLeg[] } {
+  const legs: RouteLeg[] = [];
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const distM = calculateStraightLineDistance(coordinates[i], coordinates[i + 1]) * 1000;
+    legs.push({ distance: distM, duration: distM / 15 });
+  }
+  return {
+    geometry: { type: 'LineString', coordinates: [...coordinates] },
+    distance: legs.reduce((sum, leg) => sum + leg.distance, 0),
+    duration: legs.reduce((sum, leg) => sum + leg.duration, 0),
+    legs,
+  };
+}
+
+async function getSingleLegRoute(
+  origin: [number, number],
+  destination: [number, number]
+): Promise<{ geometry: [number, number][]; distance: number; duration: number } | null> {
+  const coords = `${origin[0]},${origin[1]};${destination[0]},${destination[1]}`;
+  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?access_token=${MAPBOX_API_KEY}&geometries=geojson&overview=full&steps=false`;
+  const response = await fetchWithTimeout(url);
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => '');
+    console.warn('Mapbox single leg route error:', response.status, response.statusText, errorBody);
+    return null;
+  }
+  const data = await response.json();
+  const route = data?.routes?.[0];
+  if (!route?.geometry?.coordinates?.length) return null;
+  return {
+    geometry: route.geometry.coordinates as [number, number][],
+    distance: Number(route.distance ?? 0),
+    duration: Number(route.duration ?? 0),
+  };
+}
+
+async function buildSegmentedRoute(
+  coordinates: [number, number][]
+): Promise<{ geometry: GeoJSON.LineString; distance: number; duration: number; legs: RouteLeg[] }> {
+  const stitchedGeometry: [number, number][] = [];
+  const legs: RouteLeg[] = [];
+
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const origin = coordinates[i];
+    const destination = coordinates[i + 1];
+    const legRoute = await getSingleLegRoute(origin, destination);
+
+    if (legRoute) {
+      if (stitchedGeometry.length === 0) {
+        stitchedGeometry.push(...legRoute.geometry);
+      } else {
+        stitchedGeometry.push(...legRoute.geometry.slice(1));
+      }
+      legs.push({ distance: legRoute.distance, duration: legRoute.duration });
+      continue;
+    }
+
+    // Fallback for a failed single leg: keep the route complete with straight-line segment.
+    const fallbackDistanceM = calculateStraightLineDistance(origin, destination) * 1000;
+    if (stitchedGeometry.length === 0) stitchedGeometry.push(origin, destination);
+    else stitchedGeometry.push(destination);
+    legs.push({ distance: fallbackDistanceM, duration: fallbackDistanceM / 15 });
+  }
+
+  return {
+    geometry: { type: 'LineString', coordinates: stitchedGeometry },
+    distance: legs.reduce((sum, leg) => sum + leg.distance, 0),
+    duration: legs.reduce((sum, leg) => sum + leg.duration, 0),
+    legs,
+  };
+}
+
 /**
  * Get route through multiple waypoints (2-25 coordinates)
  * @param coordinates - Array of [longitude, latitude] in visit order
@@ -298,11 +386,35 @@ export const getRouteWithWaypoints = async (
   if (MAPBOX_API_KEY === 'YOUR_MAPBOX_ACCESS_TOKEN') return null;
 
   try {
-    const coordsStr = coordinates.map(([lon, lat]) => `${lon},${lat}`).join(';');
+    const validCoordinates = coordinates.filter(
+      ([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat)
+    );
+    if (validCoordinates.length < 2) return null;
+
+    const trimmedCoordinates =
+      validCoordinates.length > 25 ? validCoordinates.slice(0, 25) : validCoordinates;
+    if (validCoordinates.length > 25) {
+      console.warn(
+        `Mapbox Directions supports up to 25 points. Trimmed ${validCoordinates.length} to ${trimmedCoordinates.length}.`
+      );
+    }
+
+    const coordsStr = trimmedCoordinates.map(([lon, lat]) => `${lon},${lat}`).join(';');
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordsStr}?access_token=${MAPBOX_API_KEY}&geometries=geojson&overview=full&steps=false`;
 
-    const response = await fetch(url);
-    if (!response.ok) return null;
+    const response = await fetchWithTimeout(url);
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      if (response.status !== 422) {
+        console.warn('Mapbox waypoints route error:', response.status, response.statusText, errorBody);
+      } else {
+        mapboxLog('Mapbox route too long, switching to segmented route fallback.');
+      }
+      if (response.status === 422) {
+        return await buildSegmentedRoute(trimmedCoordinates);
+      }
+      return null;
+    }
 
     const data = await response.json();
     if (data.routes && data.routes.length > 0) {
@@ -318,10 +430,10 @@ export const getRouteWithWaypoints = async (
         legs,
       };
     }
-    return null;
+    return buildStraightLineRoute(trimmedCoordinates);
   } catch (error: any) {
     console.error('Multi-waypoint route error:', error);
-    return null;
+    return buildStraightLineRoute(coordinates);
   }
 };
 
