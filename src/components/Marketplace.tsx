@@ -25,6 +25,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Popover,
 } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
@@ -42,8 +43,42 @@ interface ColumnWidths {
 
 type SortDirection = 'asc' | 'desc' | null;
 type ColumnFilters = {
-  [key: string]: string;
+  [key: string]: string[];
 };
+type RangeFilter = { min?: number; max?: number };
+type RangeFilters = { [key: string]: RangeFilter };
+
+type DateFilter = {
+  year?: string;
+  month?: string; // '01'..'12'
+  day?: string;   // '01'..'31'
+};
+
+const NUMERIC_COLUMN_KEYS = new Set(['quantity', 'cost', 'unitPrice']);
+const COLUMN_WIDTHS_STORAGE_KEY = 'marketplace.columnWidths.v1';
+
+const RU_MONTHS = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+];
+
+/** Parse a date string in common formats into {y,m,d} (zero-padded strings). Returns null if unparseable. */
+function parseReceiptDate(input: string | null | undefined): { y: string; m: string; d: string } | null {
+  if (!input) return null;
+  const s = String(input).trim();
+  if (!s) return null;
+  // ISO YYYY-MM-DD or YYYY/MM/DD
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) {
+    return { y: m[1], m: m[2].padStart(2, '0'), d: m[3].padStart(2, '0') };
+  }
+  // DD.MM.YYYY / DD/MM/YYYY / DD-MM-YYYY
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (m) {
+    return { y: m[3], m: m[2].padStart(2, '0'), d: m[1].padStart(2, '0') };
+  }
+  return null;
+}
 
 /** Format number: space as thousands separator, comma as decimal separator. If decimals is provided, number is rounded to that precision. */
 function formatNumber(value: string | number, decimals?: number): string {
@@ -65,10 +100,10 @@ const Marketplace: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [columnWidths, setColumnWidths] = useState<ColumnWidths>({
+  const defaultColumnWidths = useMemo<ColumnWidths>(() => ({
     balanceUnit: 120,
     companyName: 380,
-    receiptDate: 110,
+    receiptDate: 140,
     warehouseAddress: 350,
     materialClass: 130,
     className: 300,
@@ -82,12 +117,70 @@ const Marketplace: React.FC = () => {
     profitability: 150,
     cost: 200,
     chartActions: 200,
+  }), []);
+  const [columnWidths, setColumnWidths] = useState<ColumnWidths>(() => {
+    try {
+      const saved = localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...defaultColumnWidths, ...parsed };
+      }
+    } catch {
+      /* ignore */
+    }
+    return defaultColumnWidths;
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(columnWidths));
+    } catch {
+      /* ignore */
+    }
+  }, [columnWidths]);
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
-  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
+  const [tabIndex, setTabIndex] = useState(0); // 0 = Складские запасы, 1 = Мои запасы
+  // Filters are kept per-tab so switching tabs preserves each tab's filter state.
+  const [columnFiltersByTab, setColumnFiltersByTab] = useState<Record<number, ColumnFilters>>({});
+  const [rangeFiltersByTab, setRangeFiltersByTab] = useState<Record<number, RangeFilters>>({});
+  const [dateFilterByTab, setDateFilterByTab] = useState<Record<number, DateFilter>>({});
+  const columnFilters = columnFiltersByTab[tabIndex] ?? {};
+  const rangeFilters = rangeFiltersByTab[tabIndex] ?? {};
+  const dateFilter = dateFilterByTab[tabIndex] ?? {};
+  const setColumnFilters = useCallback(
+    (updater: ColumnFilters | ((prev: ColumnFilters) => ColumnFilters)) => {
+      setColumnFiltersByTab((all) => {
+        const prev = all[tabIndex] ?? {};
+        const next = typeof updater === 'function' ? (updater as (p: ColumnFilters) => ColumnFilters)(prev) : updater;
+        return { ...all, [tabIndex]: next };
+      });
+    },
+    [tabIndex]
+  );
+  const setRangeFilters = useCallback(
+    (updater: RangeFilters | ((prev: RangeFilters) => RangeFilters)) => {
+      setRangeFiltersByTab((all) => {
+        const prev = all[tabIndex] ?? {};
+        const next = typeof updater === 'function' ? (updater as (p: RangeFilters) => RangeFilters)(prev) : updater;
+        return { ...all, [tabIndex]: next };
+      });
+    },
+    [tabIndex]
+  );
+  const setDateFilter = useCallback(
+    (updater: DateFilter | ((prev: DateFilter) => DateFilter)) => {
+      setDateFilterByTab((all) => {
+        const prev = all[tabIndex] ?? {};
+        const next = typeof updater === 'function' ? (updater as (p: DateFilter) => DateFilter)(prev) : updater;
+        return { ...all, [tabIndex]: next };
+      });
+    },
+    [tabIndex]
+  );
+  const [dateFilterAnchor, setDateFilterAnchor] = useState<HTMLElement | null>(null);
+  const justResizedRef = useRef<boolean>(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [tabIndex, setTabIndex] = useState(0); // 0 = Складские запасы, 1 = Мои запасы
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [uploadPreview, setUploadPreview] = useState<{
@@ -189,21 +282,66 @@ const Marketplace: React.FC = () => {
     return data.filter((row) => !isUserRow(row));
   }, [data, user, tabIndex]);
 
-  // Get unique values for a column (based on current tab data)
-  const getUniqueColumnValues = useMemo(() => {
-    const baseFiltered = dataForTab;
+  /** Apply column, range, and date filters. `skipColumnKey` excludes that column's filter (used when computing its own dropdown options). */
+  const applyFilters = useCallback(
+    (rows: MappedInventoryRow[], skipColumnKey?: string) => {
+      let out = rows;
+      // Multi-select column filters
+      Object.entries(columnFilters).forEach(([columnKey, values]) => {
+        if (skipColumnKey === columnKey) return;
+        if (values && values.length > 0) {
+          const field = columns.find((col) => col.key === columnKey)?.field || columnKey;
+          const set = new Set(values.map((v) => v.trim()));
+          out = out.filter((row) => {
+            const rowValue = String((row as any)[field] || '').trim();
+            return set.has(rowValue);
+          });
+        }
+      });
+      // Numeric range filters
+      Object.entries(rangeFilters).forEach(([columnKey, range]) => {
+        if (skipColumnKey === columnKey) return;
+        if (!range) return;
+        const hasMin = range.min !== undefined && !isNaN(range.min);
+        const hasMax = range.max !== undefined && !isNaN(range.max);
+        if (!hasMin && !hasMax) return;
+        const field = columns.find((col) => col.key === columnKey)?.field || columnKey;
+        out = out.filter((row) => {
+          const num = parseDecimalStr(String((row as any)[field] ?? ''));
+          if (isNaN(num)) return false;
+          if (hasMin && num < (range.min as number)) return false;
+          if (hasMax && num > (range.max as number)) return false;
+          return true;
+        });
+      });
+      // Date filter (treated as filter on receiptDate column)
+      if (skipColumnKey !== 'receiptDate' && (dateFilter.year || dateFilter.month || dateFilter.day)) {
+        out = out.filter((row) => {
+          const parsed = parseReceiptDate((row as any).receiptDate);
+          if (!parsed) return false;
+          if (dateFilter.year && parsed.y !== dateFilter.year) return false;
+          if (dateFilter.month && parsed.m !== dateFilter.month) return false;
+          if (dateFilter.day && parsed.d !== dateFilter.day) return false;
+          return true;
+        });
+      }
+      return out;
+    },
+    [columnFilters, rangeFilters, dateFilter, columns]
+  );
 
-    return (columnKey: string) => {
-      const field = columns.find(col => col.key === columnKey)?.field || columnKey;
+  // Per-column unique values reflect all OTHER active filters (Excel-style).
+  const getUniqueColumnValues = useCallback(
+    (columnKey: string) => {
+      const field = columns.find((col) => col.key === columnKey)?.field || columnKey;
+      const base = applyFilters(dataForTab, columnKey);
       const uniqueValues = new Set<string>();
-      
-      baseFiltered.forEach((row) => {
+      base.forEach((row) => {
         const value = (row as any)[field];
         if (value !== null && value !== undefined && value !== '') {
           uniqueValues.add(String(value));
         }
       });
-      
       return Array.from(uniqueValues).sort((a, b) => {
         const aNum = parseDecimalStr(a);
         const bNum = parseDecimalStr(b);
@@ -212,22 +350,36 @@ const Marketplace: React.FC = () => {
         }
         return a.localeCompare(b);
       });
-    };
-  }, [dataForTab, columns]);
+    },
+    [applyFilters, dataForTab, columns]
+  );
 
-  const filteredData = useMemo(() => {
-    let filtered = dataForTab;
-
-    // Apply column filters (advanced filter by column)
-    Object.entries(columnFilters).forEach(([columnKey, filterValue]) => {
-      if (filterValue && filterValue.trim()) {
-        const field = columns.find(col => col.key === columnKey)?.field || columnKey;
-        filtered = filtered.filter((row) => {
-          const rowValue = String((row as any)[field] || '').trim();
-          return rowValue === filterValue.trim();
-        });
+  // Date filter dropdown options: years/months/days available given the OTHER active column filters.
+  const dateFilterOptions = useMemo(() => {
+    const baseRows = applyFilters(dataForTab, 'receiptDate');
+    const years = new Set<string>();
+    const months = new Set<string>();
+    const days = new Set<string>();
+    baseRows.forEach((row) => {
+      const p = parseReceiptDate((row as any).receiptDate);
+      if (!p) return;
+      years.add(p.y);
+      if (!dateFilter.year || p.y === dateFilter.year) {
+        months.add(p.m);
+        if (!dateFilter.month || p.m === dateFilter.month) {
+          days.add(p.d);
+        }
       }
     });
+    return {
+      years: Array.from(years).sort(),
+      months: Array.from(months).sort(),
+      days: Array.from(days).sort(),
+    };
+  }, [applyFilters, dataForTab, dateFilter]);
+
+  const filteredData = useMemo(() => {
+    let filtered = applyFilters(dataForTab);
 
     // Apply sorting
     if (sortColumn && sortDirection) {
@@ -255,7 +407,7 @@ const Marketplace: React.FC = () => {
     }
 
     return filtered;
-  }, [dataForTab, sortColumn, sortDirection, columnFilters]);
+  }, [applyFilters, dataForTab, sortColumn, sortDirection]);
 
   // Calculate paginated data
   const paginatedData = useMemo(() => {
@@ -267,7 +419,7 @@ const Marketplace: React.FC = () => {
   // Reset to first page when filters change
   useEffect(() => {
     setPage(0);
-  }, [columnFilters, sortColumn, sortDirection]);
+  }, [columnFilters, rangeFilters, dateFilter, sortColumn, sortDirection]);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -280,6 +432,8 @@ const Marketplace: React.FC = () => {
   };
 
   const handleSort = (columnKey: string) => {
+    // Suppress sort if the click was the tail of a column resize.
+    if (justResizedRef.current) return;
     if (sortColumn === columnKey) {
       if (sortDirection === 'asc') {
         setSortDirection('desc');
@@ -297,12 +451,15 @@ const Marketplace: React.FC = () => {
 
   const handleMouseDown = (columnKey: string, e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setResizingColumn(columnKey);
     const startX = e.pageX;
     const startWidth = columnWidths[columnKey];
+    let moved = false;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const diff = moveEvent.pageX - startX;
+      if (Math.abs(diff) > 1) moved = true;
       const newWidth = Math.max(50, startWidth + diff); // Minimum width of 50px
       setColumnWidths((prev) => ({
         ...prev,
@@ -312,6 +469,14 @@ const Marketplace: React.FC = () => {
 
     const handleMouseUp = () => {
       setResizingColumn(null);
+      // Block the click that bubbles to the TableCell after mouseup so it
+      // doesn't trigger a sort. Cleared on the next tick.
+      if (moved) {
+        justResizedRef.current = true;
+        setTimeout(() => {
+          justResizedRef.current = false;
+        }, 0);
+      }
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -320,23 +485,40 @@ const Marketplace: React.FC = () => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const handleColumnFilterChange = (columnKey: string, value: string) => {
+  const handleColumnFilterChange = (columnKey: string, values: string[]) => {
     setColumnFilters((prev) => {
-      if (value === '') {
+      if (!values || values.length === 0) {
         const newFilters = { ...prev };
         delete newFilters[columnKey];
         return newFilters;
       }
-      return {
-        ...prev,
-        [columnKey]: value,
-      };
+      return { ...prev, [columnKey]: values };
+    });
+  };
+
+  const handleRangeFilterChange = (columnKey: string, next: RangeFilter) => {
+    setRangeFilters((prev) => {
+      const hasMin = next.min !== undefined && !isNaN(next.min);
+      const hasMax = next.max !== undefined && !isNaN(next.max);
+      if (!hasMin && !hasMax) {
+        const out = { ...prev };
+        delete out[columnKey];
+        return out;
+      }
+      return { ...prev, [columnKey]: next };
     });
   };
 
   const clearAllFilters = () => {
     setColumnFilters({});
+    setRangeFilters({});
+    setDateFilter({});
   };
+
+  const activeFilterCount =
+    Object.keys(columnFilters).length +
+    Object.keys(rangeFilters).length +
+    (dateFilter.year || dateFilter.month || dateFilter.day ? 1 : 0);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -434,6 +616,7 @@ const Marketplace: React.FC = () => {
             onChange={(_e, newValue: number) => {
               setTabIndex(newValue);
               setPage(0);
+              setDateFilterAnchor(null);
             }}
             sx={{
               minHeight: 56,
@@ -661,9 +844,9 @@ const Marketplace: React.FC = () => {
                   {sortDirection === 'asc' ? '↑' : '↓'}
                 </span>
               )}
-              {Object.keys(columnFilters).length > 0 && (
+              {activeFilterCount > 0 && (
                 <span style={{ marginLeft: '16px' }}>
-                  Активных фильтров: {Object.keys(columnFilters).length}
+                  Активных фильтров: {activeFilterCount}
                 </span>
               )}
             </Typography>
@@ -680,7 +863,7 @@ const Marketplace: React.FC = () => {
               className="marketplace-pagination-top"
             />
           </Box>
-          {Object.keys(columnFilters).length > 0 && (
+          {activeFilterCount > 0 && (
             <Typography variant="body2" onClick={clearAllFilters} className="marketplace-clear-filters">
               Очистить все фильтры
             </Typography>
@@ -742,10 +925,111 @@ const Marketplace: React.FC = () => {
               </TableRow>
               <TableRow>
                 {columns.map((column) => {
+                  if (column.key === 'receiptDate') {
+                    const hasFilter = !!(dateFilter.year || dateFilter.month || dateFilter.day);
+                    const summary = hasFilter
+                      ? [dateFilter.year, dateFilter.month, dateFilter.day].filter(Boolean).join('-')
+                      : 'Все';
+                    return (
+                      <TableCell
+                        key={`filter-${column.key}`}
+                        className="marketplace-table-filter-cell"
+                        style={{
+                          width: `${columnWidths[column.key]}px`,
+                          minWidth: `${columnWidths[column.key]}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Box
+                          onClick={(e) => setDateFilterAnchor(e.currentTarget)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 1,
+                            px: 1,
+                            height: 32,
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            backgroundColor: 'rgba(42,42,42,0.99)',
+                            color: hasFilter ? '#FED208' : '#fff',
+                            border: `1px solid ${hasFilter ? '#FED208' : 'rgba(255,255,255,0.23)'}`,
+                            fontSize: '0.875rem',
+                            '&:hover': { borderColor: '#FED208' },
+                          }}
+                        >
+                          <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {summary}
+                          </Box>
+                          <Box sx={{ fontSize: '0.7rem', opacity: 0.7 }}>▾</Box>
+                        </Box>
+                      </TableCell>
+                    );
+                  }
+                  if (NUMERIC_COLUMN_KEYS.has(column.key)) {
+                    const range = rangeFilters[column.key] ?? {};
+                    const hasRange = range.min !== undefined || range.max !== undefined;
+                    const rangeFieldSx = {
+                      flex: 1,
+                      minWidth: 0,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: 'rgba(42,42,42,0.99)',
+                        color: '#fff',
+                        '& fieldset': { borderColor: hasRange ? '#FED208' : 'rgba(255,255,255,0.23)' },
+                        '&:hover fieldset': { borderColor: '#FED208' },
+                      },
+                      '& .MuiInputBase-input': { color: '#fff' },
+                    };
+                    const parseInput = (raw: string): number | undefined => {
+                      const v = raw.trim();
+                      if (!v) return undefined;
+                      const n = parseDecimalStr(v);
+                      return isNaN(n) ? undefined : n;
+                    };
+                    return (
+                      <TableCell
+                        key={`filter-${column.key}`}
+                        className="marketplace-table-filter-cell"
+                        style={{
+                          width: `${columnWidths[column.key]}px`,
+                          minWidth: `${columnWidths[column.key]}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <TextField
+                            size="small"
+                            placeholder="Мин"
+                            defaultValue={range.min !== undefined ? String(range.min).replace('.', ',') : ''}
+                            onBlur={(e) =>
+                              handleRangeFilterChange(column.key, { ...range, min: parseInput(e.target.value) })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            }}
+                            sx={rangeFieldSx}
+                          />
+                          <TextField
+                            size="small"
+                            placeholder="Макс"
+                            defaultValue={range.max !== undefined ? String(range.max).replace('.', ',') : ''}
+                            onBlur={(e) =>
+                              handleRangeFilterChange(column.key, { ...range, max: parseInput(e.target.value) })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            }}
+                            sx={rangeFieldSx}
+                          />
+                        </Box>
+                      </TableCell>
+                    );
+                  }
                   const uniqueValues = getUniqueColumnValues(column.key);
-                  const hasFilter = columnFilters[column.key];
-                  const rawValue = columnFilters[column.key] || null;
-                  const filterValue = rawValue && uniqueValues.includes(rawValue) ? rawValue : null;
+                  const selected = columnFilters[column.key] ?? [];
+                  const hasFilter = selected.length > 0;
+                  // Drop selections that no longer exist in current uniqueValues (avoid Autocomplete warnings).
+                  const validSelected = selected.filter((v) => uniqueValues.includes(v));
                   return (
                     <TableCell
                       key={`filter-${column.key}`}
@@ -757,19 +1041,16 @@ const Marketplace: React.FC = () => {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Autocomplete
+                        multiple
+                        disableCloseOnSelect
                         size="small"
                         options={uniqueValues}
-                        value={filterValue}
-                        onChange={(_e, newValue) => handleColumnFilterChange(column.key, newValue ?? '')}
-                        getOptionLabel={(opt) =>
-                          column.key === 'cost'
-                            ? formatNumber(opt, 2)
-                            : (column.key === 'quantity' || column.key === 'unitPrice')
-                            ? formatNumber(opt)
-                            : String(opt)
-                        }
+                        value={validSelected}
+                        onChange={(_e, newValue) => handleColumnFilterChange(column.key, newValue)}
+                        getOptionLabel={(opt) => String(opt)}
+                        limitTags={1}
                         renderInput={(params) => (
-                          <TextField {...params} placeholder="Все" />
+                          <TextField {...params} placeholder={hasFilter ? '' : 'Все'} />
                         )}
                         sx={{
                           '& .MuiOutlinedInput-root': {
@@ -781,6 +1062,13 @@ const Marketplace: React.FC = () => {
                           '& .MuiInputBase-input': { color: '#fff' },
                           '& .MuiAutocomplete-clearIndicator': { color: 'rgba(255,255,255,0.54)' },
                           '& .MuiAutocomplete-popupIndicator': { color: 'rgba(255,255,255,0.54)' },
+                          '& .MuiChip-root': {
+                            backgroundColor: 'rgba(254,210,8,0.18)',
+                            color: '#FED208',
+                            border: '1px solid rgba(254,210,8,0.5)',
+                            height: 22,
+                            '& .MuiChip-deleteIcon': { color: '#FED208' },
+                          },
                         }}
                         className={`marketplace-table-filter-select ${hasFilter ? 'has-filter' : ''}`}
                         slotProps={{
@@ -796,7 +1084,7 @@ const Marketplace: React.FC = () => {
               {filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} align="center" className="marketplace-table-empty-cell">
-                    {Object.keys(columnFilters).length > 0 ? 'Записи не найдены по заданным фильтрам' : 'Данные отсутствуют'}
+                    {activeFilterCount > 0 ? 'Записи не найдены по заданным фильтрам' : 'Данные отсутствуют'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -907,6 +1195,121 @@ const Marketplace: React.FC = () => {
           )}
           </Box>
         </TableContainer>
+
+        <Popover
+          open={!!dateFilterAnchor}
+          anchorEl={dateFilterAnchor}
+          onClose={() => setDateFilterAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          slotProps={{
+            paper: {
+              sx: {
+                p: 1.5,
+                backgroundColor: 'rgba(30,30,30,0.98)',
+                border: '1px solid rgba(254,210,8,0.3)',
+                minWidth: 360,
+              },
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Autocomplete
+              size="small"
+              options={dateFilterOptions.years}
+              value={dateFilter.year ?? null}
+              onChange={(_e, v) =>
+                setDateFilter((prev) => {
+                  const next: DateFilter = { ...prev, year: v ?? undefined };
+                  if (!v) { next.month = undefined; next.day = undefined; }
+                  return next;
+                })
+              }
+              renderInput={(params) => <TextField {...params} placeholder="Год" />}
+              sx={{
+                flex: 1,
+                minWidth: 100,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(42,42,42,0.99)',
+                  color: '#fff',
+                  '& fieldset': { borderColor: dateFilter.year ? '#FED208' : 'rgba(255,255,255,0.23)' },
+                  '&:hover fieldset': { borderColor: '#FED208' },
+                },
+                '& .MuiInputBase-input': { color: '#fff' },
+                '& .MuiAutocomplete-clearIndicator': { color: 'rgba(255,255,255,0.54)' },
+                '& .MuiAutocomplete-popupIndicator': { color: 'rgba(255,255,255,0.54)' },
+              }}
+              slotProps={{ paper: { className: 'marketplace-table-filter-menu' } }}
+            />
+            <Autocomplete
+              size="small"
+              disabled={!dateFilter.year}
+              options={dateFilterOptions.months}
+              value={dateFilter.month ?? null}
+              getOptionLabel={(m) => `${m} — ${RU_MONTHS[parseInt(m, 10) - 1] ?? ''}`}
+              onChange={(_e, v) =>
+                setDateFilter((prev) => {
+                  const next: DateFilter = { ...prev, month: v ?? undefined };
+                  if (!v) next.day = undefined;
+                  return next;
+                })
+              }
+              renderInput={(params) => <TextField {...params} placeholder="Месяц" />}
+              sx={{
+                flex: 1.4,
+                minWidth: 130,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(42,42,42,0.99)',
+                  color: '#fff',
+                  '& fieldset': { borderColor: dateFilter.month ? '#FED208' : 'rgba(255,255,255,0.23)' },
+                  '&:hover fieldset': { borderColor: '#FED208' },
+                },
+                '& .MuiInputBase-input': { color: '#fff' },
+                '& .MuiAutocomplete-clearIndicator': { color: 'rgba(255,255,255,0.54)' },
+                '& .MuiAutocomplete-popupIndicator': { color: 'rgba(255,255,255,0.54)' },
+              }}
+              slotProps={{ paper: { className: 'marketplace-table-filter-menu' } }}
+            />
+            <Autocomplete
+              size="small"
+              disabled={!dateFilter.month}
+              options={dateFilterOptions.days}
+              value={dateFilter.day ?? null}
+              onChange={(_e, v) => setDateFilter((prev) => ({ ...prev, day: v ?? undefined }))}
+              renderInput={(params) => <TextField {...params} placeholder="День" />}
+              sx={{
+                flex: 1,
+                minWidth: 90,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(42,42,42,0.99)',
+                  color: '#fff',
+                  '& fieldset': { borderColor: dateFilter.day ? '#FED208' : 'rgba(255,255,255,0.23)' },
+                  '&:hover fieldset': { borderColor: '#FED208' },
+                },
+                '& .MuiInputBase-input': { color: '#fff' },
+                '& .MuiAutocomplete-clearIndicator': { color: 'rgba(255,255,255,0.54)' },
+                '& .MuiAutocomplete-popupIndicator': { color: 'rgba(255,255,255,0.54)' },
+              }}
+              slotProps={{ paper: { className: 'marketplace-table-filter-menu' } }}
+            />
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.5 }}>
+            <Button
+              size="small"
+              onClick={() => setDateFilter({})}
+              sx={{ color: 'rgba(255,255,255,0.7)', textTransform: 'none' }}
+            >
+              Сбросить
+            </Button>
+            <Button
+              size="small"
+              onClick={() => setDateFilterAnchor(null)}
+              sx={{ color: '#FED208', textTransform: 'none' }}
+            >
+              Готово
+            </Button>
+          </Box>
+        </Popover>
       </Container>
     </Box>
   );
