@@ -181,7 +181,7 @@ const AdminPanel: React.FC = () => {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка сохранения рентабельности');
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения Торговой Премии');
     } finally {
       setSavingAllProfit(false);
     }
@@ -364,7 +364,7 @@ const AdminPanel: React.FC = () => {
         <Paper className="admin-paper">
           <Box className="admin-tabs-container">
             <Tabs value={tabValue} onChange={(_e, n) => setTabValue(n)} className="admin-tabs">
-              <Tab label="Рентабельность" />
+              <Tab label="ТорговаяПремия" />
               <Tab label="Тарифы доставки" />
               <Tab label="Пользователи" />
             </Tabs>
@@ -372,7 +372,7 @@ const AdminPanel: React.FC = () => {
 
           <TabPanel value={tabValue} index={0}>
             <Box className="admin-section-header">
-              <Typography variant="h6">Управление рентабельностью по БЕ</Typography>
+              <Typography variant="h6">Управление ТорговаяПремияю по БЕ</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -459,7 +459,7 @@ const AdminPanel: React.FC = () => {
                   <TableRow>
                     <TableCell>БЕ</TableCell>
                     <TableCell>Общество</TableCell>
-                    <TableCell>Рентабельность, %</TableCell>
+                    <TableCell>ТорговаяПремия, %</TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>
@@ -504,7 +504,7 @@ const AdminPanel: React.FC = () => {
                     <TableCell>
                       <TextField
                         size="small"
-                        placeholder="Рентабельность, %"
+                        placeholder="ТорговаяПремия, %"
                         value={newBeProfitability}
                         onChange={(e) => {
                           let v = e.target.value.replace(/\./g, ',').replace(/[^\d,]/g, '');

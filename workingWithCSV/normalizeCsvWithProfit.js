@@ -1,9 +1,9 @@
 /**
- * Normalizes CSV with Рентабельность for DB import:
+ * Normalizes CSV with ТорговаяПремия for DB import:
  * - Deletes "Наименование склада" column
  * - Trims trailing " ," from cells
  * - Renames headers to match inventory table schema
- * - Maps "Рентабельность" -> "Плановая рентабельность"
+ * - Maps "ТорговаяПремия" -> "Плановая ТорговаяПремия"
  */
 
 const fs = require('fs');
@@ -29,7 +29,7 @@ const HEADER_MAP = {
   'количество': 'Количество',
   'стоимость запасов': 'Стоимость запасов',
   'цена запаса': 'Цена запаса',
-  'рентабельность': 'Рентабельность',
+  'ТорговаяПремия': 'ТорговаяПремия',
 };
 
 function mapHeader(name) {
@@ -85,7 +85,7 @@ function main() {
   let outCsv = Papa.unparse(rows, { columns: newFields, header: true });
   outCsv = outCsv.replace(/,\s*$/gm, '');
   fs.writeFileSync(OUTPUT, '\uFEFF' + outCsv, 'utf8');
-  console.log(`Normalized: ${rows.length} rows, Рентабельность → ${path.basename(OUTPUT)}`);
+  console.log(`Normalized: ${rows.length} rows, ТорговаяПремия → ${path.basename(OUTPUT)}`);
 }
 
 main();

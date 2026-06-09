@@ -29,7 +29,7 @@ export interface InventoryRow {
   'БЕИ (единица измерения)': string | null;
   Количество: string | null;
   'Стоимость запасов': string | null;
-  'Рентабельность': number | null;
+  'ТорговаяПремия': number | null;
   'Цена запаса': string | null;
 }
 
@@ -51,7 +51,7 @@ export interface MappedInventoryRow {
   /** Цена за единицу (Цена запаса) — used in Мои запасы to compute Стоимость запасов */
   unitPrice: string;
   cost: string;
-  /** Плановая рентабельность — set by admin, shown in Мои запасы tab */
+  /** Плановая ТорговаяПремия — set by admin, shown in Мои запасы tab */
   profitability: string;
 }
 
@@ -72,7 +72,7 @@ const mapInventoryRow = (row: InventoryRow): MappedInventoryRow => {
     quantity: row.Количество ?? '',
     unitPrice: row['Цена запаса'] ?? '',
     cost: row['Стоимость запасов'] ?? '',
-    profitability: row['Рентабельность'] != null ? String(row['Рентабельность']) : '',
+    profitability: row['ТорговаяПремия'] != null ? String(row['ТорговаяПремия']) : '',
   };
 };
 
@@ -171,7 +171,7 @@ export const inventoryService = {
       if (updates.cost !== undefined) dbUpdates['Стоимость запасов'] = updates.cost;
       if (updates.profitability !== undefined) {
         const v = parseDecimalStr(String(updates.profitability));
-        dbUpdates['Рентабельность'] = isNaN(v) ? null : v;
+        dbUpdates['ТорговаяПремия'] = isNaN(v) ? null : v;
       }
 
       const { data, error } = await supabase
@@ -197,17 +197,17 @@ export const inventoryService = {
     }
   },
 
-  /** Update Рентабельность for all rows of a given БЕ */
+  /** Update ТорговаяПремия for all rows of a given БЕ */
   async updateProfitabilityForBalanceUnit(balanceUnit: string, value: string): Promise<void> {
     const v = parseDecimalStr(String(value));
     const numVal = isNaN(v) ? null : v;
     const { error } = await supabase
       .from('inventory')
-      .update({ Рентабельность: numVal })
+      .update({ 'ТорговаяПремия': numVal })
       .eq('БЕ', balanceUnit);
     if (error) {
       console.error('Error updating profitability:', error);
-      throw new Error(`Ошибка обновления рентабельности: ${error.message}`);
+      throw new Error(`Ошибка обновления Торговой Премии: ${error.message}`);
     }
   },
 
@@ -244,7 +244,7 @@ export const inventoryService = {
         'БЕИ (единица измерения)': item.unit || null,
         Количество: item.quantity || null,
         'Стоимость запасов': item.cost || null,
-        'Рентабельность': item.profitability ? (parseDecimalStr(String(item.profitability)) || null) : null,
+        'ТорговаяПремия': item.profitability ? (parseDecimalStr(String(item.profitability)) || null) : null,
         'Цена запаса': null,
       };
 
@@ -302,7 +302,7 @@ export const inventoryService = {
 
     const profitCol = header.find((h) => {
       const k = (h || '').trim().toLowerCase().replace(/'/g, '');
-      return k.includes('рентабельность');
+      return k.includes('ТорговаяПремия');
     });
 
     const hasProfitColumn = !!profitCol;
@@ -315,7 +315,7 @@ export const inventoryService = {
     }
     const allSameProfit = profitValues.length <= 1;
 
-    // Table columns: exclude БЕ, Наименование дочернего Общества (shown at top) and Рентабельность (managed by admin, shown at top).
+    // Table columns: exclude БЕ, Наименование дочернего Общества (shown at top) and ТорговаяПремия (managed by admin, shown at top).
     const displayCols = [
       'Дата поступления',
       'Адрес склада',
@@ -342,8 +342,8 @@ export const inventoryService = {
       'БЕИ (единица измерения)': ['БЕИ (единица измерения)'],
       Количество: ['Количество'],
       'Цена запаса': ['Цена запаса', 'Цена запаса, руб (показывается во вкладке "Мои запасы")'],
-      'Рентабельность': ['Рентабельность', 'Плановая рентабельность', 'Плановая рентабельность ', 'Рентабельность (на сайте НЕ показывать)'],
-      'Стоимость запасов': [], // calculated in UI: Количество * Цена запаса * (1 + Рентабельность/100)
+      'ТорговаяПремия': ['ТорговаяПремия', 'Плановая ТорговаяПремия', 'Плановая ТорговаяПремия ', 'ТорговаяПремия (на сайте НЕ показывать)'],
+      'Стоимость запасов': [], // calculated in UI: Количество * Цена запаса * (1 + ТорговаяПремия/100)
       // Used only for top-of-dialog display (not in table):
       БЕ: ['БЕ', 'БЕ (балансовая единица) держателя запаса'],
       'Наименование дочернего Общества': ['Наименование дочернего Общества', "Наименование дочернего Общества'"],
@@ -417,7 +417,7 @@ export const inventoryService = {
       const ksm = getCol(row, ['КСМ (код материала)']);
       const quantity = getCol(row, ['Количество']);
       const cost = getCol(row, ['Стоимость запасов', 'Стоимость запасов , руб (показывается во вкладке "Складские запасы")']);
-      const rentRaw = getCol(row, ['Рентабельность', 'Плановая рентабельность', 'Плановая рентабельность ', 'Рентабельность (на сайте НЕ показывать)']);
+      const rentRaw = getCol(row, ['ТорговаяПремия', 'Плановая ТорговаяПремия', 'Плановая ТорговаяПремия ', 'ТорговаяПремия (на сайте НЕ показывать)']);
       const rent = rentRaw || (options?.defaultProfitability ?? '');
       const price = getCol(row, ['Цена запаса', 'Цена запаса, руб (показывается во вкладке "Мои запасы")']);
 
@@ -435,7 +435,7 @@ export const inventoryService = {
         'БЕИ (единица измерения)': getCol(row, ['БЕИ (единица измерения)']) || null,
         Количество: quantity || null,
         'Стоимость запасов': cost || null,
-        'Рентабельность': rent ? (parseDecimalStr(rent) || null) : null,
+        'ТорговаяПремия': rent ? (parseDecimalStr(rent) || null) : null,
         'Цена запаса': price || null,
       };
     });

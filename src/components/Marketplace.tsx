@@ -688,7 +688,7 @@ const Marketplace: React.FC = () => {
                     </Box>
                     <Box>
                       <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block' }}>
-                        Рентабельность
+                        ТорговаяПремия
                       </Typography>
                       <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>
                         {uploadPreview.profitability ? `${uploadPreview.profitability}%` : '—'}
@@ -696,7 +696,7 @@ const Marketplace: React.FC = () => {
                     </Box>
                     <Box>
                       <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block' }}>
-                        Рентабельность
+                        ТорговаяПремия
                       </Typography>
                       <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>
                         {uploadPreview.profitability ? `${uploadPreview.profitability}%` : '—'}
@@ -799,7 +799,7 @@ const Marketplace: React.FC = () => {
               </Box>
               <Box>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Рентабельность
+                  Торговая Премия
                 </Typography>
                 <Typography sx={{ color: '#fff', fontWeight: 500 }}>
                   {dataForTab[0]?.profitability ? `${String(dataForTab[0]?.profitability).replace('.', ',')}%` : '-'}
